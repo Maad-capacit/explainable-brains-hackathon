@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Grid, useGridRef, type CellComponentProps } from "react-window";
 import { Loader2 } from "lucide-react";
 import { useStore } from "../store";
@@ -92,6 +92,36 @@ export function PatchGrid() {
   const rowCount = Math.ceil(patches.length / columnCount);
 
   const gridRef = useGridRef(null);
+
+  // Index patch_idx -> position in patches[] (so scatter hover can locate it).
+  const positionByIdx = useMemo(() => {
+    const m = new Map<number, number>();
+    patches.forEach((p, i) => m.set(p.patch_idx, i));
+    return m;
+  }, [patches]);
+
+  // Register an imperative scroll callback for CoordScatter to call on hover.
+  const setScrollToPatchIdx = useStore((s) => s.setScrollToPatchIdx);
+  useEffect(() => {
+    setScrollToPatchIdx((patchIdx: number) => {
+      const pos = positionByIdx.get(patchIdx);
+      if (pos === undefined) return;
+      const rowIndex = Math.floor(pos / columnCount);
+      const columnIndex = pos % columnCount;
+      try {
+        gridRef.current?.scrollToCell({
+          rowIndex,
+          columnIndex,
+          rowAlign: "smart",
+          columnAlign: "smart",
+          behavior: "instant",
+        });
+      } catch {
+        // ignore out-of-range during transient re-renders
+      }
+    });
+    return () => setScrollToPatchIdx(null);
+  }, [positionByIdx, columnCount, gridRef, setScrollToPatchIdx]);
 
   const cellProps = useMemo<CellProps>(
     () => ({

@@ -3,6 +3,7 @@ import { TopBar } from "./components/TopBar";
 import { BrainListPanel } from "./components/BrainListPanel";
 import { PatchGrid } from "./components/PatchGrid";
 import { CoordScatter } from "./components/CoordScatter";
+import { PatchDetailModal } from "./components/PatchDetailModal";
 import { useStore } from "./store";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         <PatchGrid />
         <CoordScatter />
       </main>
+      <PatchDetailModal />
     </div>
   );
 }

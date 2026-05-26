@@ -16,12 +16,17 @@ interface AppState {
   hoveredPatchIdx: number | null;   // grid <-> scatter sync
   selectedPatchIdx: number | null;  // opens detail modal
 
+  // Cross-panel imperative bridge: PatchGrid registers a scroll callback on mount,
+  // CoordScatter calls it when the user hovers a scatter point.
+  scrollToPatchIdx: ((idx: number) => void) | null;
+
   // Actions
   loadBrains: () => Promise<void>;
   selectBrain: (scanName: string) => Promise<void>;
   setHovered: (idx: number | null) => void;
   openDetail: (idx: number) => void;
   closeDetail: () => void;
+  setScrollToPatchIdx: (fn: ((idx: number) => void) | null) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -36,6 +41,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   hoveredPatchIdx: null,
   selectedPatchIdx: null,
+  scrollToPatchIdx: null,
 
   async loadBrains() {
     set({ brainsLoading: true, brainsError: null });
@@ -75,4 +81,5 @@ export const useStore = create<AppState>((set, get) => ({
   setHovered: (idx) => set({ hoveredPatchIdx: idx }),
   openDetail: (idx) => set({ selectedPatchIdx: idx }),
   closeDetail: () => set({ selectedPatchIdx: null }),
+  setScrollToPatchIdx: (fn) => set({ scrollToPatchIdx: fn }),
 }));
