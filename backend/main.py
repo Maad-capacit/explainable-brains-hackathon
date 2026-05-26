@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import data_access
+from . import data_access, projection
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -48,6 +48,15 @@ class BrainSummary(BaseModel):
     n_patches: int = Field(..., description="Number of patches extracted from this brain")
 
 
+class ProjectionPoint(BaseModel):
+    patch_idx: int
+    scan_name: str
+    x: float
+    y: float
+    cluster_id: int
+    group_nr: str
+
+
 class PatchMetadata(BaseModel):
     patch_idx: int = Field(..., description="Index into the patches dataset (also aligns with embeddings)")
     scan_name: str
@@ -77,6 +86,10 @@ class HealthResponse(BaseModel):
 @app.on_event("startup")
 def _warm_metadata():
     data_access.load_metadata()
+    try:
+        projection.load()
+    except FileNotFoundError as e:
+        logging.warning("projection not available: %s", e)
 
 
 @app.on_event("shutdown")
@@ -144,6 +157,20 @@ def get_patch_thumbnail(scan_name: str, patch_idx: int):
     except IndexError as e:
         raise HTTPException(404, str(e))
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get(
+    "/api/projection",
+    response_model=list[ProjectionPoint],
+    summary="UMAP projection + cluster labels for all patches",
+    description="Returns one point per patch with 2D UMAP coords and k-means cluster id.",
+    tags=["Projection"],
+)
+def get_projection():
+    try:
+        return projection.records()
+    except FileNotFoundError as e:
+        raise HTTPException(503, str(e))
 
 
 @app.get(
