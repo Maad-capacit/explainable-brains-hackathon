@@ -25,6 +25,7 @@ interface AppState {
   projection: ProjectionPoint[];
   projectionLoading: boolean;
   projectionError: string | null;
+  textLabels: string[];
 
   // Per-brain validation phases
   currentPhase: Phase;
@@ -77,6 +78,7 @@ export const useStore = create<AppState>((set, get) => ({
   projection: [],
   projectionLoading: false,
   projectionError: null,
+  textLabels: [],
 
   currentPhase: 1,
   algoKey: INITIAL_ALGO,
@@ -108,8 +110,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().projection.length > 0 || get().projectionLoading) return;
     set({ projectionLoading: true, projectionError: null });
     try {
-      const projection = await api.projection();
-      set({ projection, projectionLoading: false });
+      const [projection, textLabels] = await Promise.all([
+        api.projection(),
+        api.textLabels().catch(() => [] as string[]),
+      ]);
+      set({ projection, textLabels, projectionLoading: false });
     } catch (e) {
       set({ projectionError: (e as Error).message, projectionLoading: false });
     }

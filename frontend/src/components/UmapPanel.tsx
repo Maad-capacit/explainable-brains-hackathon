@@ -1,60 +1,84 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Plotly from "plotly.js-gl3d-dist-min";
 import { Loader2 } from "lucide-react";
 import { useStore } from "../store";
 import { type ProjectionPoint } from "../lib/api";
 import { Panel } from "./Panel";
 
-// Matplotlib tab20 — gives 20 visually distinct colors for k=20 clusters.
-const TAB20 = [
+// 24-color palette for text clusters; first 20 also serve k-means coloring.
+const PALETTE = [
   "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
   "#2ca02c", "#98df8a", "#d62728", "#ff9896",
   "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
   "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
   "#bcbd22", "#dbdb8d", "#17becf", "#9edae5",
+  "#393b79", "#637939", "#8c6d31", "#843c39",
 ];
 
+type Mode = "kmeans" | "text";
 
 export function UmapPanel() {
   const projection = useStore((s) => s.projection);
+  const textLabels = useStore((s) => s.textLabels);
   const loading = useStore((s) => s.projectionLoading);
   const error = useStore((s) => s.projectionError);
   const loadProjection = useStore((s) => s.loadProjection);
   const setHoveredProjectionPoint = useStore((s) => s.setHoveredProjectionPoint);
 
   const divRef = useRef<HTMLDivElement | null>(null);
+  const [mode, setMode] = useState<Mode>("kmeans");
 
   useEffect(() => {
     loadProjection();
   }, [loadProjection]);
 
-  // Group points by cluster so each becomes its own plotly trace (one color per trace).
+  const haveText = textLabels.length > 0;
+
+  // Group points by cluster id for the active mode; one trace per cluster so
+  // plotly's legend gives free click-to-filter behaviour.
   const traces = useMemo(() => {
     if (projection.length === 0) return [];
+    const keyOf = (p: ProjectionPoint) =>
+      mode === "kmeans" ? p.cluster_id : p.text_cluster_id;
+
     const buckets = new Map<number, ProjectionPoint[]>();
     for (const p of projection) {
-      const arr = buckets.get(p.cluster_id);
+      const k = keyOf(p);
+      const arr = buckets.get(k);
       if (arr) arr.push(p);
-      else buckets.set(p.cluster_id, [p]);
+      else buckets.set(k, [p]);
     }
     return [...buckets.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([cluster_id, pts]) => ({
-        type: "scattergl",
-        mode: "markers",
-        name: `cluster ${cluster_id}`,
-        x: pts.map((p) => p.x),
-        y: pts.map((p) => p.y),
-        customdata: pts.map((p) => [p.patch_idx, p.scan_name, p.cluster_id]),
-        marker: {
-          size: 5,
-          color: TAB20[cluster_id % TAB20.length],
-          opacity: 0.8,
-          line: { width: 0 },
-        },
-        hovertemplate: "cluster %{customdata[2]} — patch %{customdata[0]}<extra></extra>",
-      }));
-  }, [projection]);
+      .map(([id, pts]) => {
+        const label =
+          mode === "kmeans"
+            ? `cluster ${id}`
+            : (textLabels[id] ?? `cluster ${id}`);
+        // Trim text-mode legend labels — long phrases blow out the legend.
+        const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
+        return {
+          type: "scattergl",
+          mode: "markers",
+          name: trimmed,
+          x: pts.map((p) => p.x),
+          y: pts.map((p) => p.y),
+          customdata: pts.map((p) => [
+            p.patch_idx,
+            p.scan_name,
+            p.cluster_id,
+            p.text_cluster_id,
+          ]),
+          marker: {
+            size: 5,
+            color: PALETTE[id % PALETTE.length],
+            opacity: 0.8,
+            line: { width: 0 },
+          },
+          hovertemplate: `${trimmed} — patch %{customdata[0]}<extra></extra>`,
+        };
+      });
+  }, [projection, mode, textLabels]);
 
   useEffect(() => {
     const el = divRef.current;
@@ -85,11 +109,13 @@ export function UmapPanel() {
       plotEl.on("plotly_hover", (ev) => {
         const pt = ev.points[0];
         if (!pt) return;
-        const [patch_idx, scan_name, cluster_id] = pt.customdata as [number, string, number];
+        const [patch_idx, scan_name, cluster_id, text_cluster_id] =
+          pt.customdata as [number, string, number, number];
         const point: ProjectionPoint = {
           patch_idx,
           scan_name,
           cluster_id,
+          text_cluster_id,
           x: pt.x as number,
           y: pt.y as number,
           group_nr: "",
@@ -98,7 +124,7 @@ export function UmapPanel() {
       });
       plotEl.on("plotly_unhover", () => setHoveredProjectionPoint(null));
     });
-  }, [traces, setHoveredProjectionPoint]);
+  }, [traces, mode, setHoveredProjectionPoint]);
 
   // Cleanup on unmount.
   useEffect(() => {
@@ -109,9 +135,39 @@ export function UmapPanel() {
   }, []);
 
   const right = projection.length > 0 ? (
-    <span className="font-mono text-[10px] text-(--color-fg-dim)">
-      {projection.length} pts · k=20
-    </span>
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[10px] text-(--color-fg-dim)">
+        {projection.length} pts
+      </span>
+      <div className="flex overflow-hidden rounded border border-(--color-panel-border) text-[10px]">
+        <button
+          type="button"
+          onClick={() => setMode("kmeans")}
+          className={
+            "px-2 py-0.5 transition-colors " +
+            (mode === "kmeans"
+              ? "bg-white/10 text-(--color-fg)"
+              : "text-(--color-fg-dim) hover:bg-white/[0.03]")
+          }
+        >
+          K-means
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("text")}
+          disabled={!haveText}
+          title={haveText ? "" : "No text clusters available"}
+          className={
+            "px-2 py-0.5 transition-colors " +
+            (mode === "text"
+              ? "bg-white/10 text-(--color-fg)"
+              : "text-(--color-fg-dim) hover:bg-white/[0.03] disabled:opacity-40")
+          }
+        >
+          Text vocab
+        </button>
+      </div>
+    </div>
   ) : null;
 
   return (
