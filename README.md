@@ -1,17 +1,35 @@
 # Explainable Brains Hackathon
 
-**Copenhagen · Tuesday May 26th, 2026 · 16:00–20:00**  
-*From signals to understanding — a 4-hour sprint to make complex brain imaging data accessible, interpretable, and actionable.*
+## Overview
+
+3D light-sheet microscopy scans of mouse brains, imaged at 5×5×5 µm resolution with
+a c-Fos marker (proxy for neuronal activation). Two conditions: **Vehicle (G001)**
+vs **Semaglutide / Ozempic (G002)**. Goal: make complex brain imaging data accessible,
+interpretable, and actionable using AI.
+
+Data lives in a remote S3 bucket — see [bucket_access/bucket_utils.py](bucket_access/bucket_utils.py).
 
 ---
 
-The brain is under pressure. Neurological and mental health conditions are among the most widespread and least solved problems in medicine. As populations age and daily life grows more cognitively demanding, the burden on patients, families, healthcare systems, and economies continues to grow.
+## Table of Contents
 
-Vibraint ApS ([vibraint.dk](https://vibraint.dk)) builds tools to accelerate treatment discovery for brain diseases. Their platform processes complex 3D microscopy scans of rodent brains into interactive, interpretable brain maps making it possible to track how drugs distribute across brain regions, map neural activity patterns in response to treatment, and localise specific receptors and cell types at the scale and resolution that drug development demands.
+1. [Claude Code Skills](#claude-code-skills)
+2. [Challenge A — Smart image data selection](#challenge-a--smart-image-data-selection-for-generalizable-ai-models)
+3. [Challenge B — Guided brain data exploration](#challenge-b--guided-brain-data-exploration-for-biological-insight)
+4. [Setup](#setup)
+5. [Claude Code setup](#claude-code-setup)
+6. [LightningAI Studio](#lightningai-studio)
+7. [About the hackathon](#about-the-hackathon)
 
-Drug development for brain diseases has one of the highest failure rates in medicine. The bottleneck is not the amount of data. It is the complexity that makes exploration and interpretation far from straightforward.
+---
 
-> **Overarching question: How can we extract meaningful information from complex brain imaging data?**
+## Claude Code Skills
+
+Skills are located in `.claude/skills/` and are automatically loaded by Claude Code.
+
+| Skill | Triggers | File |
+|-------|----------|------|
+| `brain-bucket-access` | listing/reading/downloading bucket data, patches, embeddings, NIfTI, CSVs | [.claude/skills/brain-bucket-access/SKILL.md](.claude/skills/brain-bucket-access/SKILL.md) |
 
 ---
 
@@ -176,3 +194,20 @@ echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc
 source ~/.bashrc
 claude
 ```
+
+---
+
+## About the hackathon
+
+**Copenhagen · Tuesday May 26th, 2026 · 16:00–20:00**  
+*From signals to understanding — a 4-hour sprint to make complex brain imaging data accessible, interpretable, and actionable.*
+
+Neurological and mental health conditions are among the most widespread and least solved
+problems in medicine. Vibraint ApS ([vibraint.dk](https://vibraint.dk)) builds tools to
+accelerate treatment discovery for brain diseases — processing complex 3D microscopy
+scans into interactive, interpretable brain maps.
+
+Drug development for brain diseases has one of the highest failure rates in medicine.
+The bottleneck is not the amount of data. It is the complexity.
+
+> **Overarching question: How can we extract meaningful information from complex brain imaging data?**
