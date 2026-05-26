@@ -24,8 +24,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -35,6 +35,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Note: the Python-style `lib/` rule above is anchored to the repo root only —
+# do not change it back to a bare `lib/`, which would also ignore
+# frontend/src/lib/ and silently drop the API client.
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
