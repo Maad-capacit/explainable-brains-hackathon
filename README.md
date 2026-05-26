@@ -48,6 +48,8 @@ minimizing the need for manual labeling.
 
 **→ [Challenge A — solution, data, and quick start](CHALLENGE_A.md)**
 
+**→ [Mouse Brain Patch Viewer — runnable web app for Challenge A](VIEWER.md)**
+
 
 ## Challenge B — Guided brain data exploration for biological insight
 
@@ -135,44 +137,65 @@ Anthropic is providing **$20 in API credits** per participant.
    **Mac / Linux:**
    <pre>curl -fsSL https://claude.ai/install.sh | bash</pre>
 
-    **Windows:**
-   Download and run the installer from [claude.ai/download](https://claude.ai/download)
+    **Windows (PowerShell):**
+```bash
+   winget install Anthropic.ClaudeCode
+```
+   Requires [Git for Windows](https://git-scm.com/downloads/win) — install that first if you don't have it.
 
 3. Set your API key:
 
-   **Mac / Linux:**
+   **Linux:**
    <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc
    source ~/.bashrc</pre>
 
-   **Windows — PowerShell:**
-   <pre>[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "User")</pre>
+   **Mac:**
+   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.zshrc
+   source ~/.zshrc</pre>
+   
+   **Windows (Git Bash):**
+   <pre>export ANTHROPIC_API_KEY=sk-ant-...</pre>
 
-   **Windows — UI:**
-   Search "environment variables" in the Start menu → Edit environment variables for your account → New → add `ANTHROPIC_API_KEY` and your key value
+   **Windows (UI):**
+   Search "environment variables" in the Start menu → Edit environment variables for your account → New → Name: `ANTHROPIC_API_KEY`, Value: your key → restart Git Bash
 
-4. Run:
+3. Run:
 ```bash
    claude
 ```
 
 ### Option B — Already have Claude Code running with a subscription
-
 You can use the hackathon API credits instead of your subscription.
 
 1. Claim your credits at **[appliedfutures.io/hackathons/explainable-brains](https://appliedfutures.io/hackathons/explainable-brains)**
    *(use your Organization ID from console.anthropic.com)*
 
-2. Set the API key — this overrides your subscription automatically, no reinstall needed:
+2. Log out first to avoid conflicts between your subscription and the API key:
+```bash
+   claude /logout
+```
 
-   **Mac / Linux:**
-   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc
-   source ~/.bashrc</pre>
+3. Start Claude and authenticate with your Console account:
+```bash
+   claude
+```
+   Select **option 2 — Anthropic Console account** → follow the browser link → log in at console.anthropic.com
 
-   **Windows — PowerShell:**
-   <pre>[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "User")</pre>
+**No browser access?** Set the API key manually instead of step 3:
 
+   **Mac:**
+   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.zshrc && source ~/.zshrc</pre>
+   
+   **Linux:**
+   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc && source ~/.bashrc</pre>
+   
+   **Windows — Git Bash:**
+   <pre>export ANTHROPIC_API_KEY=sk-ant-...</pre>
+   
    **Windows — UI:**
-   Search "environment variables" in the Start menu → Edit environment variables for your account → New → add `ANTHROPIC_API_KEY` and your key value
+   Search "environment variables" in the Start menu → Edit environment variables for your account → New → add `ANTHROPIC_API_KEY` and your key value → restart your terminal
+
+   Then run `claude`, select **option 2** and say **Yes** to use the API key.
 
 ---
 
@@ -188,11 +211,22 @@ git clone https://github.com/explainable-brains/explainable-brains-hackathon.git
 cd explainable-brains-hackathon
 ```
 4. Set up Claude Code:
+- Add your Anthropic API key as a secret: go to lightning.ai → Settings → Secrets
+- Create a secret named ANTHROPIC_API_KEY with your key from console.anthropic.com
+- Restart the Studio so the secret is injected
+- Install Claude Code
+  
 ```bash
 curl -fsSL https://claude.ai/install.sh | bash
-echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc
-source ~/.bashrc
-claude
+```
+
+- Start Claude Code via
+```bash
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY claude
+```
+or
+```bash
+ANTHROPIC_API_KEY=sk-ant-YOUR_KEY_HERE claude
 ```
 
 ---
