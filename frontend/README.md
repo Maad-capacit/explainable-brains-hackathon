@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# Frontend — Mouse Brain Patch Viewer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite UI for browsing mouse brain image patches.
+Displays all 12 brain scans, patch thumbnails, quality metrics, and a coordinate scatter plot.
 
-Currently, two official plugins are available:
+## Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requires the **backend running on port 8000** first (see `backend/README.md`).
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# from the frontend/ directory
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Opens at **http://localhost:5173**.  
+All `/api` requests are proxied to `http://localhost:8000` via Vite — no CORS config needed in dev.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server with hot reload |
+| `npm run build` | Type-check + production bundle → `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | ESLint |
+
+## Stack
+
+| Package | Role |
+|---------|------|
+| React 19 + TypeScript | UI framework |
+| Vite 8 | Dev server and bundler |
+| Tailwind CSS v4 | Styling |
+| Zustand | Global state (selected brain, patches, hover/selection) |
+| lucide-react | Icons |
+
+## Structure
+
 ```
+src/
+├── main.tsx                   Entry point
+├── App.tsx                    Root layout
+├── store.ts                   Zustand store — brains, patches, hover/selection state
+├── index.css                  Tailwind base styles
+├── lib/
+│   └── api.ts                 Typed fetch client for the FastAPI backend
+└── components/
+    ├── TopBar.tsx             Header
+    ├── BrainListPanel.tsx     Sidebar — list of 12 brain scans
+    ├── PatchGrid.tsx          Thumbnail grid for selected brain
+    ├── CoordScatter.tsx       XYZ coordinate scatter plot
+    └── Panel.tsx              Shared panel wrapper
+```
+
+## Notes
+
+- `node_modules` is already present — no `npm install` needed unless you add packages.
+- The Vite proxy (`vite.config.ts`) forwards `/api/*` to the backend, so the frontend and backend must run simultaneously.
+- Production build (`dist/`) can be served statically behind the FastAPI app or any static host.
