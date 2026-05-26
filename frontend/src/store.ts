@@ -1,5 +1,15 @@
 import { create } from "zustand";
 import { api, type BrainSummary, type PatchMetadata, type ProjectionPoint } from "./lib/api";
+import {
+  ALGORITHMS,
+  defaultParams,
+  runClustering,
+  type AlgoKey,
+  type ClusteringResult,
+  type ParamValues,
+} from "./lib/clustering";
+
+export type Phase = 1 | 2 | 3;
 
 interface AppState {
   // Data
@@ -16,13 +26,20 @@ interface AppState {
   projectionLoading: boolean;
   projectionError: string | null;
 
-  // Interaction
-  hoveredPatchIdx: number | null;   // grid <-> scatter sync
-  selectedPatchIdx: number | null;  // opens detail modal
-  hoveredProjectionPoint: ProjectionPoint | null;  // UMAP hover → preview overlay
+  // Per-brain validation phases
+  currentPhase: Phase;
+  algoKey: AlgoKey;
+  algoParams: ParamValues;
+  clusterResult: ClusteringResult | null;     // scoped to selectedScanName; cleared on brain change
+  clusteringInProgress: boolean;
+  clusteringError: string | null;
+  selectedCluster: number | null;             // Phase 2: which cluster sub-folder is open
 
-  // Cross-panel imperative bridge: PatchGrid registers a scroll callback on mount,
-  // CoordScatter calls it when the user hovers a scatter point.
+  // Interaction
+  hoveredPatchIdx: number | null;
+  selectedPatchIdx: number | null;
+  hoveredProjectionPoint: ProjectionPoint | null;
+
   scrollToPatchIdx: ((idx: number) => void) | null;
 
   // Actions
@@ -34,7 +51,18 @@ interface AppState {
   openDetail: (idx: number) => void;
   closeDetail: () => void;
   setScrollToPatchIdx: (fn: ((idx: number) => void) | null) => void;
+
+  // Phase + clustering actions
+  setPhase: (phase: Phase) => void;
+  setAlgorithm: (key: AlgoKey) => void;
+  setAlgoParam: (key: string, value: number | string) => void;
+  resetAlgoParams: () => void;
+  runClusteringForSelected: () => Promise<void>;
+  setSelectedCluster: (clusterId: number | null) => void;
+  clearClusterResult: () => void;
 }
+
+const INITIAL_ALGO: AlgoKey = "kmeans";
 
 export const useStore = create<AppState>((set, get) => ({
   brains: [],
@@ -50,6 +78,14 @@ export const useStore = create<AppState>((set, get) => ({
   projectionLoading: false,
   projectionError: null,
 
+  currentPhase: 1,
+  algoKey: INITIAL_ALGO,
+  algoParams: defaultParams(INITIAL_ALGO),
+  clusterResult: null,
+  clusteringInProgress: false,
+  clusteringError: null,
+  selectedCluster: null,
+
   hoveredPatchIdx: null,
   selectedPatchIdx: null,
   hoveredProjectionPoint: null,
@@ -60,7 +96,6 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const brains = await api.brains();
       set({ brains, brainsLoading: false });
-      // Auto-select the first brain on initial load
       if (brains.length > 0 && get().selectedScanName === null) {
         await get().selectBrain(brains[0].scan_name);
       }
@@ -82,6 +117,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   async selectBrain(scanName) {
     if (get().selectedScanName === scanName) return;
+    // Switching brains invalidates the cluster result.
     set({
       selectedScanName: scanName,
       patches: [],
@@ -89,10 +125,13 @@ export const useStore = create<AppState>((set, get) => ({
       patchesError: null,
       hoveredPatchIdx: null,
       selectedPatchIdx: null,
+      clusterResult: null,
+      clusteringError: null,
+      selectedCluster: null,
+      currentPhase: 1,
     });
     try {
       const patches = await api.patches(scanName);
-      // Ignore stale responses if the user switched brains while loading.
       if (get().selectedScanName !== scanName) return;
       set({ patches, patchesLoading: false });
     } catch (e) {
@@ -106,4 +145,62 @@ export const useStore = create<AppState>((set, get) => ({
   openDetail: (idx) => set({ selectedPatchIdx: idx }),
   closeDetail: () => set({ selectedPatchIdx: null }),
   setScrollToPatchIdx: (fn) => set({ scrollToPatchIdx: fn }),
+
+  // ── Phase + clustering ─────────────────────────────────────────────────────
+  setPhase: (phase) => set({ currentPhase: phase }),
+
+  setAlgorithm: (key) => {
+    if (get().algoKey === key) return;
+    set({ algoKey: key, algoParams: defaultParams(key) });
+  },
+
+  setAlgoParam: (key, value) =>
+    set((s) => ({ algoParams: { ...s.algoParams, [key]: value } })),
+
+  resetAlgoParams: () =>
+    set((s) => ({ algoParams: defaultParams(s.algoKey) })),
+
+  async runClusteringForSelected() {
+    const { selectedScanName, algoKey, algoParams } = get();
+    if (!selectedScanName) return;
+    if (!(algoKey in ALGORITHMS)) {
+      set({ clusteringError: `unknown algorithm: ${algoKey}` });
+      return;
+    }
+    set({ clusteringInProgress: true, clusteringError: null, selectedCluster: null });
+    try {
+      const emb = await api.embeddings(selectedScanName);
+      // Bail if the user switched brains while we were waiting on the fetch.
+      if (get().selectedScanName !== selectedScanName) return;
+
+      // Run synchronously — k-means on ~600×512 floats is fast enough that a
+      // worker thread is overkill for now. If we add bigger algorithms later
+      // we can spin one up.
+      const result = runClustering(algoKey, emb.data, emb.shape, algoParams);
+
+      if (get().selectedScanName !== selectedScanName) return;
+      set({
+        clusterResult: result,
+        clusteringInProgress: false,
+        // Auto-advance to phase 2 so the user sees the partition immediately.
+        currentPhase: 2,
+      });
+    } catch (e) {
+      if (get().selectedScanName !== selectedScanName) return;
+      set({
+        clusteringError: (e as Error).message,
+        clusteringInProgress: false,
+      });
+    }
+  },
+
+  setSelectedCluster: (clusterId) => set({ selectedCluster: clusterId }),
+
+  clearClusterResult: () =>
+    set({
+      clusterResult: null,
+      selectedCluster: null,
+      clusteringError: null,
+      currentPhase: 1,
+    }),
 }));
