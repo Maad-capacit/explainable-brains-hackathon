@@ -48,6 +48,8 @@ minimizing the need for manual labeling.
 
 **→ [Challenge A — solution, data, and quick start](CHALLENGE_A.md)**
 
+**→ [Mouse Brain Patch Viewer — runnable web app for Challenge A](VIEWER.md)**
+
 
 ## Challenge B — Guided brain data exploration for biological insight
 
