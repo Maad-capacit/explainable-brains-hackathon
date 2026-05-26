@@ -31,12 +31,14 @@ export interface PatchMetadata {
 }
 
 // Maad's offline UMAP projection — one record per patch across the whole dataset.
+// text_cluster_id is the PLIP zero-shot vocab match (see scripts/text_cluster.py).
 export interface ProjectionPoint {
   patch_idx: number;
   scan_name: string;
   x: number;
   y: number;
   cluster_id: number;
+  text_cluster_id: number;
   group_nr: string;
 }
 
@@ -70,6 +72,7 @@ export const api = {
   patches: (scan: string) =>
     getJSON<PatchMetadata[]>(`/api/brains/${encodeURIComponent(scan)}/patches`),
   projection: () => getJSON<ProjectionPoint[]>("/api/projection"),
+  textLabels: () => getJSON<string[]>("/api/text-labels"),
   embeddings: getEmbeddings,
   thumbnailURL: (scan: string, idx: number) =>
     `/api/brains/${encodeURIComponent(scan)}/patches/${idx}/thumbnail`,
