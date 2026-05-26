@@ -23,7 +23,17 @@ On first request, patch H5 files are downloaded from the bucket and cached in `d
 | `GET` | `/api/brains/{scan_name}/patches/{patch_idx}/thumbnail` | 128×128 PNG thumbnail |
 | `GET` | `/api/health` | `{"status": "ok"}` |
 
-Interactive docs: `http://localhost:8000/docs`
+## API Documentation (Swagger)
+
+Once the server is running, interactive docs are available at:
+
+| URL | Format |
+|-----|--------|
+| [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger UI — interactive, try endpoints directly |
+| [http://localhost:8000/redoc](http://localhost:8000/redoc) | ReDoc — clean read-only reference |
+| [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) | Raw OpenAPI 3.1 JSON spec |
+
+All endpoints include typed response models, field descriptions, and are grouped by tag (`Brains`, `Patches`, `System`).
 
 ## Environment variables
 
