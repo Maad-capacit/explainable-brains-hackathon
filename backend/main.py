@@ -8,9 +8,8 @@ Run (from repo root):
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
