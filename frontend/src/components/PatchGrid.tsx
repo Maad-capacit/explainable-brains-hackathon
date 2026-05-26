@@ -3,13 +3,14 @@ import { Grid, useGridRef, type CellComponentProps } from "react-window";
 import { Loader2 } from "lucide-react";
 import { useStore } from "../store";
 import { api, type PatchMetadata } from "../lib/api";
+import { clusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 
 interface CellProps {
   patches: PatchMetadata[];
   scanName: string;
   columnCount: number;
-  tileSize: number;
+  clusterByPatchIdx: Map<number, number> | null;
 }
 
 function Cell({
@@ -19,6 +20,7 @@ function Cell({
   patches,
   scanName,
   columnCount,
+  clusterByPatchIdx,
 }: CellComponentProps<CellProps>) {
   const idx = rowIndex * columnCount + columnIndex;
   const patch = patches[idx];
@@ -29,6 +31,9 @@ function Cell({
   const openDetail = useStore((s) => s.openDetail);
 
   if (!patch) return null;
+
+  const clusterId = clusterByPatchIdx?.get(patch.patch_idx);
+  const stripeColor = clusterId !== undefined ? clusterColor(clusterId) : null;
 
   const ring = selected
     ? "ring-2 ring-(--color-highlight)"
@@ -56,21 +61,57 @@ function Cell({
           decoding="async"
           className="block size-full object-cover [image-rendering:pixelated]"
         />
+        {stripeColor && (
+          <span
+            className="pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+            style={{ backgroundColor: stripeColor }}
+            title={`cluster ${clusterId}`}
+          />
+        )}
         <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/65 px-1 py-px font-mono text-[9px] text-white/90">
           {patch.patch_idx}
         </span>
+        {clusterId !== undefined && (
+          <span
+            className="pointer-events-none absolute top-1 right-1 rounded bg-black/65 px-1 py-px font-mono text-[9px]"
+            style={{ color: stripeColor ?? undefined }}
+          >
+            c{clusterId}
+          </span>
+        )}
       </button>
     </div>
   );
 }
 
-const TILE_SIZE = 120; // px, square thumb tile
+const TILE_SIZE = 120;
 
-export function PatchGrid() {
+interface GridSurfaceProps {
+  /** Override the patches list (e.g. show only one cluster's patches in Phase 2). */
+  patchesOverride?: PatchMetadata[];
+  /** Pass false to suppress cluster coloring even when a result exists. */
+  showClusterColors?: boolean;
+  /** When true, registers this grid with the store as the scroll target for CoordScatter hovers. */
+  registerScrollTarget?: boolean;
+}
+
+/**
+ * Bare virtualized patch grid surface — no Panel chrome. Use directly inside a
+ * Panel/container that supplies its own header. The Panel-wrapped variant
+ * `PatchGrid` is below.
+ */
+export function PatchGridSurface({
+  patchesOverride,
+  showClusterColors = true,
+  registerScrollTarget = false,
+}: GridSurfaceProps = {}) {
   const selectedScanName = useStore((s) => s.selectedScanName);
-  const patches = useStore((s) => s.patches);
+  const storePatches = useStore((s) => s.patches);
   const loading = useStore((s) => s.patchesLoading);
   const error = useStore((s) => s.patchesError);
+  const clusterResult = useStore((s) => s.clusterResult);
+
+  const patches = patchesOverride ?? storePatches;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -93,16 +134,24 @@ export function PatchGrid() {
 
   const gridRef = useGridRef(null);
 
-  // Index patch_idx -> position in patches[] (so scatter hover can locate it).
+  const clusterByPatchIdx = useMemo<Map<number, number> | null>(() => {
+    if (!clusterResult || !showClusterColors) return null;
+    const m = new Map<number, number>();
+    for (let i = 0; i < clusterResult.labels.length; i++) {
+      m.set(i, clusterResult.labels[i]!);
+    }
+    return m;
+  }, [clusterResult, showClusterColors]);
+
   const positionByIdx = useMemo(() => {
     const m = new Map<number, number>();
     patches.forEach((p, i) => m.set(p.patch_idx, i));
     return m;
   }, [patches]);
 
-  // Register an imperative scroll callback for CoordScatter to call on hover.
   const setScrollToPatchIdx = useStore((s) => s.setScrollToPatchIdx);
   useEffect(() => {
+    if (!registerScrollTarget) return;
     setScrollToPatchIdx((patchIdx: number) => {
       const pos = positionByIdx.get(patchIdx);
       if (pos === undefined) return;
@@ -117,63 +166,94 @@ export function PatchGrid() {
           behavior: "instant",
         });
       } catch {
-        // ignore out-of-range during transient re-renders
+        /* transient out-of-range during re-renders */
       }
     });
     return () => setScrollToPatchIdx(null);
-  }, [positionByIdx, columnCount, gridRef, setScrollToPatchIdx]);
+  }, [registerScrollTarget, positionByIdx, columnCount, gridRef, setScrollToPatchIdx]);
 
   const cellProps = useMemo<CellProps>(
     () => ({
       patches,
       scanName: selectedScanName ?? "",
       columnCount,
-      tileSize: TILE_SIZE,
+      clusterByPatchIdx,
     }),
-    [patches, selectedScanName, columnCount],
+    [patches, selectedScanName, columnCount, clusterByPatchIdx],
   );
 
-  const right = patches.length > 0 ? (
-    <span className="font-mono text-[10px] text-(--color-fg-dim)">
-      {patches.length.toLocaleString()} patches
-    </span>
-  ) : null;
+  return (
+    <div ref={wrapperRef} className="relative h-full w-full">
+      {!selectedScanName && (
+        <div className="flex h-full items-center justify-center text-xs text-(--color-fg-dim)">
+          Select a brain to view patches.
+        </div>
+      )}
+      {selectedScanName && loading && (
+        <div className="flex h-full items-center justify-center gap-2 text-xs text-(--color-fg-dim)">
+          <Loader2 size={14} className="animate-spin" />
+          Loading patches…
+        </div>
+      )}
+      {selectedScanName && error && (
+        <div className="flex h-full items-center justify-center px-4 text-xs text-(--color-semaglutide)">
+          {error}
+        </div>
+      )}
+      {selectedScanName && !loading && !error && patches.length > 0 && size.width > 0 && (
+        <Grid
+          gridRef={gridRef}
+          cellComponent={Cell}
+          cellProps={cellProps}
+          columnCount={columnCount}
+          rowCount={rowCount}
+          columnWidth={TILE_SIZE}
+          rowHeight={TILE_SIZE}
+          overscanCount={2}
+          defaultHeight={size.height}
+          defaultWidth={size.width}
+          style={{ height: "100%", width: "100%" }}
+        />
+      )}
+    </div>
+  );
+}
+
+interface PatchGridProps extends GridSurfaceProps {
+  title?: string;
+  headerRight?: React.ReactNode;
+}
+
+/**
+ * Panel-wrapped patch grid. Kept for callers that want a self-contained panel
+ * (e.g. Phase 2 cluster contents). Phase 1 composes PatchGridSurface inside its
+ * own panel layout to share chrome with the config bar.
+ */
+export function PatchGrid({
+  title = "Patches",
+  headerRight,
+  patchesOverride,
+  showClusterColors = true,
+  registerScrollTarget,
+}: PatchGridProps = {}) {
+  const storePatches = useStore((s) => s.patches);
+  const patches = patchesOverride ?? storePatches;
+
+  const right =
+    headerRight ??
+    (patches.length > 0 ? (
+      <span className="font-mono text-[10px] text-(--color-fg-dim)">
+        {patches.length.toLocaleString()} patches
+      </span>
+    ) : null);
 
   return (
-    <Panel title="Patches" right={right} bodyClassName="overflow-hidden">
-      <div ref={wrapperRef} className="relative h-full w-full">
-        {!selectedScanName && (
-          <div className="flex h-full items-center justify-center text-xs text-(--color-fg-dim)">
-            Select a brain to view patches.
-          </div>
-        )}
-        {selectedScanName && loading && (
-          <div className="flex h-full items-center justify-center gap-2 text-xs text-(--color-fg-dim)">
-            <Loader2 size={14} className="animate-spin" />
-            Loading patches…
-          </div>
-        )}
-        {selectedScanName && error && (
-          <div className="flex h-full items-center justify-center px-4 text-xs text-(--color-semaglutide)">
-            {error}
-          </div>
-        )}
-        {selectedScanName && !loading && !error && patches.length > 0 && size.width > 0 && (
-          <Grid
-            gridRef={gridRef}
-            cellComponent={Cell}
-            cellProps={cellProps}
-            columnCount={columnCount}
-            rowCount={rowCount}
-            columnWidth={TILE_SIZE}
-            rowHeight={TILE_SIZE}
-            overscanCount={2}
-            defaultHeight={size.height}
-            defaultWidth={size.width}
-            style={{ height: "100%", width: "100%" }}
-          />
-        )}
-      </div>
+    <Panel title={title} right={right} bodyClassName="overflow-hidden">
+      <PatchGridSurface
+        patchesOverride={patchesOverride}
+        showClusterColors={showClusterColors}
+        registerScrollTarget={registerScrollTarget}
+      />
     </Panel>
   );
 }

@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import data_access, projection
+from . import data_access, embeddings, projection
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -157,6 +157,33 @@ def get_patch_thumbnail(scan_name: str, patch_idx: int):
     except IndexError as e:
         raise HTTPException(404, str(e))
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get(
+    "/api/brains/{scan_name}/embeddings",
+    summary="Get brain's PLIP embeddings as raw float32 bytes",
+    description=(
+        "Returns the brain's (N, 512) L2-normalized PLIP embeddings as a "
+        "contiguous little-endian float32 buffer. Shape is reported in the "
+        "X-Embeddings-Shape response header as `N,D`. The browser is expected "
+        "to parse this as `new Float32Array(arrayBuffer)`."
+    ),
+    responses={200: {"content": {"application/octet-stream": {}}}},
+    tags=["Embeddings"],
+)
+def get_embeddings(scan_name: str):
+    try:
+        data, shape = embeddings.as_bytes(scan_name)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={
+            "X-Embeddings-Shape": f"{shape[0]},{shape[1]}",
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 @app.get(

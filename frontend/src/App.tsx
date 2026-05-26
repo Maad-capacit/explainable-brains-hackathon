@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { TopBar } from "./components/TopBar";
 import { BrainListPanel } from "./components/BrainListPanel";
-import { PatchGrid } from "./components/PatchGrid";
+import { PhaseColumn } from "./components/PhaseColumn";
 import { CoordScatter } from "./components/CoordScatter";
 import { UmapPanel } from "./components/UmapPanel";
 import { HoverPreview } from "./components/HoverPreview";
@@ -20,7 +20,7 @@ export default function App() {
       <main className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_380px] gap-3 p-3">
         <BrainListPanel />
         <div className="relative min-h-0">
-          <PatchGrid />
+          <PhaseColumn />
           <HoverPreview />
         </div>
         <div className="grid min-h-0 grid-rows-2 gap-3">
