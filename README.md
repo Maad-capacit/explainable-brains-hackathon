@@ -1,247 +1,96 @@
-# Explainable Brains Hackathon
+# Explainable Brains — Hackathon Submission
 
-## Overview
-
-3D light-sheet microscopy scans of mouse brains, imaged at 5×5×5 µm resolution with
-a c-Fos marker (proxy for neuronal activation). Two conditions: **Vehicle (G001)**
-vs **Semaglutide / Ozempic (G002)**. Goal: make complex brain imaging data accessible,
-interpretable, and actionable using AI.
-
-Data lives in a remote S3 bucket — see [bucket_access/bucket_utils.py](bucket_access/bucket_utils.py).
+<!-- VIDEO DEMO — paste your embed or link here -->
+> **Demo video:** *(coming soon)*
 
 ---
 
 ## Table of Contents
 
-1. [Claude Code Skills](#claude-code-skills)
-2. [Challenge A — Smart image data selection](#challenge-a--smart-image-data-selection-for-generalizable-ai-models)
-3. [Challenge B — Guided brain data exploration](#challenge-b--guided-brain-data-exploration-for-biological-insight)
-4. [Setup](#setup)
-5. [Claude Code setup](#claude-code-setup)
-6. [LightningAI Studio](#lightningai-studio)
-7. [About the hackathon](#about-the-hackathon)
+1. [The Challenge](#the-challenge)
+2. [Our Solution](#our-solution)
+3. [How to Run](#how-to-run)
+4. [Future Work](#future-work)
+5. [Tech Stack](#tech-stack)
 
 ---
 
-## Claude Code Skills
+## The Challenge
 
-Skills are located in `.claude/skills/` and are automatically loaded by Claude Code.
+Built at the **Explainable Brains Hackathon** (Copenhagen, May 26, 2026) — **Challenge A: Smart image data selection for generalizable AI models**.
 
-| Skill | Triggers | File |
-|-------|----------|------|
-| `brain-bucket-access` | listing/reading/downloading bucket data, patches, embeddings, NIfTI, CSVs | [.claude/skills/brain-bucket-access/SKILL.md](.claude/skills/brain-bucket-access/SKILL.md) |
+Mouse brains imaged with 3D light-sheet microscopy (5×5×5 µm resolution) and stained with a c-Fos marker (proxy for neuronal activation) produce thousands of 256×256 image patches per scan. Two experimental conditions are compared — **Vehicle / control (G001)** vs. **Semaglutide / Ozempic (G002)** — across 12 brains (~7,500 patches total).
 
----
+The bottleneck in training AI models on brain imaging data is not compute — it is **data selection**. Ground-truth labels are produced by time-intensive semi-manual processes. Choosing *which* patches to label is critical: a small, well-curated dataset consistently outperforms a large, noisy one for model generalizability.
 
-## Challenge A — Smart image data selection for generalizable AI models
-
-Training AI models for brain imaging is not bottlenecked by compute — it is bottlenecked
-by data selection. A smaller, well-curated dataset often outperforms a large, noisy one.
-Reliable ground truth labels are generated through time-intensive semi-manual processes,
-so choosing *which* patches to label matters enormously.
-
-The challenge is to automatically identify the most informative signal patterns that
-represent the diversity of the dataset, enabling models to generalize well while
-minimizing the need for manual labeling.
-
-*Standard laptop should be sufficient. GPU useful only if you want to run custom models: see [LightningAI](#lightningai-studio) below.*
-
-**→ [Challenge A — solution, data, and quick start](CHALLENGE_A.md)**
-
-**→ [Mouse Brain Patch Viewer — runnable web app for Challenge A](VIEWER.md)**
-
-
-## Challenge B — Guided brain data exploration for biological insight
-
-Brain scans go through signal extraction and quantification in Vibraint's analysis
-pipeline. The final output is rich but complex: spreadsheets summarizing quantified
-signal per brain region and sample, statistical comparisons between groups, and spatial
-brain maps. This data is difficult to visualize intuitively, hard to navigate, and
-challenging to interpret without specialist tools.
-
-*Works on any laptop. No GPU needed.*
-
-**→ [Challenge B — solution, data, and quick start](CHALLENGE_B.md)**
+**The goal:** automatically characterize signal diversity across patches and surface the most informative subset for human labeling and model training.
 
 ---
 
-## Setup
+## Our Solution
 
-### 1. Fork and clone the repo
+We built a **full-stack interactive web application** that guides researchers through a structured three-phase workflow:
 
-First, click **Fork** at the top right of this page to copy the repo to your GitHub account.  
-Then, clone your fork:
-```bash
-git clone https://github.com/explainable-brains/explainable-brains-hackathon.git
-cd explainable-brains-hackathon
-```
+**Phase 1 — Explore**
+Browse all 12 brain scans and their patches with per-patch quality metrics (sharpness, SNR, signal fraction, foreground fraction). Patches are displayed in a virtualized thumbnail grid and linked to their 3D location in brain space via an interactive scatter plot.
 
-### 2. Create the environment
+**Phase 2 — Review clusters**
+Run browser-side k-means clustering on [PLIP](https://github.com/PathologyFoundation/plip) embeddings (512-dimensional, L2-normalized cosine) to partition patches into semantically meaningful groups. Clusters are presented as labeled folders — select any cluster to inspect its patches side by side.
 
-With conda:
-```bash
-conda env create -f environment.yml
-conda activate explainable-brains
-```
+**Validate with UMAP**
+A two-stage UMAP projection (512D → 10D for clustering, 512D → 2D for visualization) is pre-computed offline and served by the backend. The 2D projection is displayed alongside k-means coloring, giving researchers a visual sanity check of cluster quality across the full dataset or per brain. A secondary **text-vocabulary view** uses PLIP zero-shot matching against 24 biological phrases to semantically annotate patches without any manual labeling.
 
-With pip:
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Bucket access
-
-Data lives in a cloud bucket. Credentials are in `bucket_access/config.py` — already
-in the repo for the duration of the hackathon.
-
-```python
-from bucket_access.bucket_utils import list_files, download_file, read_h5_patches
-
-# see what's in the bucket
-list_files('challengeA/')
-list_files('challengeB/')
-```
-
-See [bucket_access/bucket_utils.py](bucket_access/bucket_utils.py) for all available functions.
-
-### 4. Set up Claude Code. See instructions below.
-
-### 5. Work on the challenge. Submit your work
-
-Push your code to your fork before demos start at 18:55:
-
-```bash
-git add .
-git commit -m "hackathon submission, team X"
-git push
-```
-
-Share your fork URL when you demo so the judges and other teams can see what you built.
+**Phase 3 — Label** *(stub, see [Future Work](#future-work))*
+Placeholder for the human-in-the-loop labeling step.
 
 ---
 
-## Claude Code setup
+## How to Run
 
-Claude Code is an AI coding assistant that runs in your terminal and reads, writes,
-and executes code across your whole project.
+See the individual READMEs for full details:
 
-### Option A — Anthropic API credits (no subscription needed)
+- **[backend/README.md](backend/README.md)** — FastAPI server, endpoints, environment variables
+- **[frontend/README.md](frontend/README.md)** — React dev server, scripts, component structure
 
-Anthropic is providing **$20 in API credits** per participant.
+### Quick start
 
-1. Claim your credits at **[appliedfutures.io/hackathons/explainable-brains](https://appliedfutures.io/hackathons/explainable-brains)**
-   *(link goes live at 16:00 — use your Organization ID from console.anthropic.com, not your claude.ai user ID)*
-
-2. Install Claude Code:
-
-   **Mac / Linux:**
-   <pre>curl -fsSL https://claude.ai/install.sh | bash</pre>
-
-    **Windows (PowerShell):**
 ```bash
-   winget install Anthropic.ClaudeCode
-```
-   Requires [Git for Windows](https://git-scm.com/downloads/win) — install that first if you don't have it.
+# 1. Install Python dependencies (from repo root)
+conda env create -f environment.yml && conda activate explainable-brains
+# or: pip install -r requirements.txt
 
-3. Set your API key:
+# 2. Start the backend (from repo root)
+uvicorn backend.main:app --reload --port 8000
 
-   **Linux:**
-   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc
-   source ~/.bashrc</pre>
-
-   **Mac:**
-   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.zshrc
-   source ~/.zshrc</pre>
-   
-   **Windows (Git Bash):**
-   <pre>export ANTHROPIC_API_KEY=sk-ant-...</pre>
-
-   **Windows (UI):**
-   Search "environment variables" in the Start menu → Edit environment variables for your account → New → Name: `ANTHROPIC_API_KEY`, Value: your key → restart Git Bash
-
-3. Run:
-```bash
-   claude
+# 3. In a second terminal, start the frontend
+cd frontend
+npm run dev
 ```
 
-### Option B — Already have Claude Code running with a subscription
-You can use the hackathon API credits instead of your subscription.
+Open **http://localhost:5173** in your browser.
 
-1. Claim your credits at **[appliedfutures.io/hackathons/explainable-brains](https://appliedfutures.io/hackathons/explainable-brains)**
-   *(use your Organization ID from console.anthropic.com)*
-
-2. Log out first to avoid conflicts between your subscription and the API key:
-```bash
-   claude /logout
-```
-
-3. Start Claude and authenticate with your Console account:
-```bash
-   claude
-```
-   Select **option 2 — Anthropic Console account** → follow the browser link → log in at console.anthropic.com
-
-**No browser access?** Set the API key manually instead of step 3:
-
-   **Mac:**
-   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.zshrc && source ~/.zshrc</pre>
-   
-   **Linux:**
-   <pre>echo "export ANTHROPIC_API_KEY=sk-ant-..." >> ~/.bashrc && source ~/.bashrc</pre>
-   
-   **Windows — Git Bash:**
-   <pre>export ANTHROPIC_API_KEY=sk-ant-...</pre>
-   
-   **Windows — UI:**
-   Search "environment variables" in the Start menu → Edit environment variables for your account → New → add `ANTHROPIC_API_KEY` and your key value → restart your terminal
-
-   Then run `claude`, select **option 2** and say **Yes** to use the API key.
+> **First run:** H5 patch files (~50 MB each) are downloaded from the Hetzner S3 bucket on first access and cached in `data_cache/`. Subsequent starts are fast.
 
 ---
 
-## LightningAI Studio
+## Future Work
 
-If you need more compute for Challenge A — more CPU, RAM, or GPU for custom model work.
+Given more time, we would have liked to:
 
-1. Go to [lightning.ai](https://lightning.ai) and create a free account
-2. Create a new Studio — Python template
-3. Clone the repo and install any missing packages into the existing environment:
-```bash
-git clone https://github.com/explainable-brains/explainable-brains-hackathon.git
-cd explainable-brains-hackathon
-```
-4. Set up Claude Code:
-- Add your Anthropic API key as a secret: go to lightning.ai → Settings → Secrets
-- Create a secret named ANTHROPIC_API_KEY with your key from console.anthropic.com
-- Restart the Studio so the secret is injected
-- Install Claude Code
-  
-```bash
-curl -fsSL https://claude.ai/install.sh | bash
-```
+**More clustering models** — Add HDBSCAN, spectral clustering, and Gaussian Mixture Models as selectable algorithms alongside k-means, allowing researchers to compare clustering strategies and choose the one that best fits each dataset's topology.
 
-- Start Claude Code via
-```bash
-ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY claude
-```
-or
-```bash
-ANTHROPIC_API_KEY=sk-ant-YOUR_KEY_HERE claude
-```
+**Natural language patch explanations** — Expand the text-vocabulary module to generate rich, per-patch natural language descriptions for each cluster's visual and biological characteristics. These summaries would appear directly inside the cluster folder view and the patch detail modal, making it easier for non-specialists to interpret what each cluster represents biologically.
+
+**Complete the labeling step (Phase 3)** — Build out the human-in-the-loop labeling interface currently stubbed as Phase 3. Annotators would assign ground-truth labels to representative patches from each cluster, propagate labels within clusters, review edge cases, and export a curated labeled dataset ready for model training.
 
 ---
 
-## About the hackathon
+## Tech Stack
 
-**Copenhagen · Tuesday May 26th, 2026 · 16:00–20:00**  
-*From signals to understanding — a 4-hour sprint to make complex brain imaging data accessible, interpretable, and actionable.*
-
-Neurological and mental health conditions are among the most widespread and least solved
-problems in medicine. Vibraint ApS ([vibraint.dk](https://vibraint.dk)) builds tools to
-accelerate treatment discovery for brain diseases — processing complex 3D microscopy
-scans into interactive, interpretable brain maps.
-
-Drug development for brain diseases has one of the highest failure rates in medicine.
-The bottleneck is not the amount of data. It is the complexity.
-
-> **Overarching question: How can we extract meaningful information from complex brain imaging data?**
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, TypeScript, Vite 8, Tailwind CSS v4, Zustand, Plotly.js |
+| Backend | FastAPI, uvicorn, h5py, numpy, pandas, Pillow |
+| ML / Embeddings | PLIP (512D), UMAP (offline), k-means (browser-side via ml-kmeans) |
+| Data | Hetzner S3 bucket, H5 patch files, Parquet projection/cluster artifacts |
+| Visualization | Plotly WebGL (3D scatter, 2D UMAP), react-window (virtualized grid) |

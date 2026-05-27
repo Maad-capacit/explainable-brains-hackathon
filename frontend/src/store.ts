@@ -63,7 +63,7 @@ interface AppState {
   clearClusterResult: () => void;
 }
 
-const INITIAL_ALGO: AlgoKey = "kmeans";
+const INITIAL_ALGO: AlgoKey = "umap";
 
 export const useStore = create<AppState>((set, get) => ({
   brains: [],

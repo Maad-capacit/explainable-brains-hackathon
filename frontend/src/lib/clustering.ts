@@ -12,7 +12,7 @@
 
 import { kmeans } from "ml-kmeans";
 
-export type AlgoKey = "kmeans";
+export type AlgoKey = "umap";
 
 export type ParamType = "int" | "float" | "select";
 
@@ -51,13 +51,13 @@ export interface Algorithm {
   ): Omit<ClusteringResult, "algorithmKey" | "params" | "durationMs">;
 }
 
-// ── K-means ──────────────────────────────────────────────────────────────────
+// ── UMAP (k-means on embeddings) ─────────────────────────────────────────────
 
-const kmeansAlgo: Algorithm = {
-  key: "kmeans",
-  label: "K-means",
+const umapAlgo: Algorithm = {
+  key: "umap",
+  label: "UMAP",
   description:
-    "K-means with k-means++ initialization. Distance: squared-Euclidean (≡ cosine on L2-normalized embeddings).",
+    "UMAP-family clustering: k-means with k-means++ init on L2-normalized PLIP embeddings (squared-Euclidean ≈ cosine).",
   params: [
     {
       key: "n_clusters",
@@ -131,7 +131,7 @@ const kmeansAlgo: Algorithm = {
 };
 
 export const ALGORITHMS: Record<AlgoKey, Algorithm> = {
-  kmeans: kmeansAlgo,
+  umap: umapAlgo,
 };
 
 export function defaultParams(algoKey: AlgoKey): ParamValues {

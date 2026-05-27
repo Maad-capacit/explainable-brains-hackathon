@@ -7,10 +7,10 @@ import { clusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 
 type ViewMode = "global" | "local";
-type ColorMode = "kmeans" | "text";
+type ColorMode = "umap" | "text";
 
 // 24-color palette for text clusters (4 more than tab20 since the PLIP vocab
-// has 24 phrases). The first 20 match `clusterColor` so kmeans and text modes
+// has 24 phrases). The first 20 match `clusterColor` so UMAP and text modes
 // share colors for the overlapping ids.
 const TEXT_PALETTE = [
   "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
@@ -33,7 +33,7 @@ export function UmapPanel() {
   const clusterResult = useStore((s) => s.clusterResult);
 
   const divRef = useRef<HTMLDivElement | null>(null);
-  const [colorMode, setColorMode] = useState<ColorMode>("kmeans");
+  const [colorMode, setColorMode] = useState<ColorMode>("umap");
 
   useEffect(() => {
     loadProjection();
@@ -54,7 +54,7 @@ export function UmapPanel() {
 
   // Build plotly traces.
   // Local  mode → only the selected brain's points, one trace per local cluster id.
-  // Global mode → one trace per cluster, colored by kmeans cluster_id or PLIP text_cluster_id.
+  // Global mode → one trace per cluster, colored by UMAP cluster_id or PLIP text_cluster_id.
   const { traces, k } = useMemo(() => {
     if (projection.length === 0) return { traces: [], k: 0 };
 
@@ -89,9 +89,9 @@ export function UmapPanel() {
       return { traces: built, k: buckets.size };
     }
 
-    // Global mode. Color by either kmeans cluster_id or PLIP text_cluster_id.
+    // Global mode. Color by either UMAP cluster_id or PLIP text_cluster_id.
     const keyOf = (p: ProjectionPoint) =>
-      colorMode === "kmeans" ? p.cluster_id : p.text_cluster_id;
+      colorMode === "umap" ? p.cluster_id : p.text_cluster_id;
 
     const buckets = new Map<number, ProjectionPoint[]>();
     for (const p of projection) {
@@ -104,13 +104,13 @@ export function UmapPanel() {
       .sort((a, b) => a[0] - b[0])
       .map(([id, pts]) => {
         const label =
-          colorMode === "kmeans"
+          colorMode === "umap"
             ? `cluster ${id}`
             : (textLabels[id] ?? `cluster ${id}`);
         // Trim text-mode legend labels — long phrases blow out hover text.
         const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
         const color =
-          colorMode === "kmeans" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
+          colorMode === "umap" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
         return {
           type: "scattergl",
           mode: "markers",
@@ -142,12 +142,12 @@ export function UmapPanel() {
       }
       for (const [id, pts] of focusedByKey) {
         const label =
-          colorMode === "kmeans"
+          colorMode === "umap"
             ? `cluster ${id}`
             : (textLabels[id] ?? `cluster ${id}`);
         const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
         const color =
-          colorMode === "kmeans" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
+          colorMode === "umap" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
         built.push({
           type: "scattergl",
           mode: "markers",
@@ -236,15 +236,15 @@ export function UmapPanel() {
         <div className="flex overflow-hidden rounded border border-(--color-panel-border) text-[10px]">
           <button
             type="button"
-            onClick={() => setColorMode("kmeans")}
+            onClick={() => setColorMode("umap")}
             className={
               "px-2 py-0.5 transition-colors " +
-              (colorMode === "kmeans"
+              (colorMode === "umap"
                 ? "bg-white/10 text-(--color-fg)"
                 : "text-(--color-fg-dim) hover:bg-white/[0.03]")
             }
           >
-            K-means
+            UMAP
           </button>
           <button
             type="button"

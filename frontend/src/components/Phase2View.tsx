@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw, FolderOpen, Folder } from "lucide-react";
 import { useStore } from "../store";
+import { ALGORITHMS } from "../lib/clustering";
 import { clusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 import { PatchGridSurface } from "./PatchGrid";
@@ -38,7 +39,7 @@ export function Phase2View() {
 
   const right = result ? (
     <span className="font-mono text-[10px] text-(--color-fg-dim)">
-      {summaries.length} clusters · {result.algorithmKey}
+      {summaries.length} clusters · {ALGORITHMS[result.algorithmKey].label}
     </span>
   ) : null;
 

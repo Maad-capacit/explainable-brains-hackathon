@@ -1,4 +1,5 @@
 import { useStore, type Phase } from "../store";
+import { ALGORITHMS } from "../lib/clustering";
 import { CheckCircle2, Circle, Lock } from "lucide-react";
 
 interface TabDef {
@@ -60,7 +61,8 @@ export function PhaseTabs() {
       <div className="flex-1" />
       {clusterResult && (
         <span className="font-mono text-[10px] text-(--color-fg-dim)">
-          {clusterResult.algorithmKey} · k={Math.max(...Array.from(clusterResult.labels)) + 1} ·{" "}
+          {ALGORITHMS[clusterResult.algorithmKey].label} · k=
+          {Math.max(...Array.from(clusterResult.labels)) + 1} ·{" "}
           {clusterResult.durationMs.toFixed(0)}ms
         </span>
       )}
