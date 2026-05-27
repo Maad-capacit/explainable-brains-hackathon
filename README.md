@@ -1,6 +1,6 @@
 # Explainable Brains — Hackathon Submission
 
-[![Watch the demo](https://github.com/user-attachments/assets/28abc5b0-27e7-4e0c-b2df-efcbc24ccffe)
+[Watch the demo](https://github.com/user-attachments/assets/28abc5b0-27e7-4e0c-b2df-efcbc24ccffe)
 
 
 
