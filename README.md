@@ -1,7 +1,8 @@
 # Explainable Brains — Hackathon Submission
 
-<!-- VIDEO DEMO — paste your embed or link here -->
-> **Demo video:** *(coming soon)*
+[![Watch the demo](https://github.com/user-attachments/assets/28abc5b0-27e7-4e0c-b2df-efcbc24ccffe)
+
+
 
 ---
 
