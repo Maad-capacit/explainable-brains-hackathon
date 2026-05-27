@@ -7,9 +7,23 @@ import { clusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 
 type ViewMode = "global" | "local";
+type ColorMode = "kmeans" | "text";
+
+// 24-color palette for text clusters (4 more than tab20 since the PLIP vocab
+// has 24 phrases). The first 20 match `clusterColor` so kmeans and text modes
+// share colors for the overlapping ids.
+const TEXT_PALETTE = [
+  "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
+  "#2ca02c", "#98df8a", "#d62728", "#ff9896",
+  "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
+  "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
+  "#bcbd22", "#dbdb8d", "#17becf", "#9edae5",
+  "#393b79", "#637939", "#8c6d31", "#843c39",
+];
 
 export function UmapPanel() {
   const projection = useStore((s) => s.projection);
+  const textLabels = useStore((s) => s.textLabels);
   const loading = useStore((s) => s.projectionLoading);
   const error = useStore((s) => s.projectionError);
   const loadProjection = useStore((s) => s.loadProjection);
@@ -19,6 +33,7 @@ export function UmapPanel() {
   const clusterResult = useStore((s) => s.clusterResult);
 
   const divRef = useRef<HTMLDivElement | null>(null);
+  const [colorMode, setColorMode] = useState<ColorMode>("kmeans");
 
   useEffect(() => {
     loadProjection();
@@ -27,6 +42,7 @@ export function UmapPanel() {
   // Auto-switch to the local view as soon as a per-brain clustering exists. The
   // user can flip back to global with the toggle in the header.
   const hasLocal = clusterResult !== null && selectedScanName !== null;
+  const haveText = textLabels.length > 0;
   const [override, setOverride] = useState<ViewMode | null>(null);
   const effectiveMode: ViewMode = override ?? (hasLocal ? "local" : "global");
 
@@ -37,8 +53,8 @@ export function UmapPanel() {
   }, [selectedScanName, clusterResult]);
 
   // Build plotly traces.
-  // Global mode → one trace per global cluster_id (Maad's offline k=20 clustering).
   // Local  mode → only the selected brain's points, one trace per local cluster id.
+  // Global mode → one trace per cluster, colored by kmeans cluster_id or PLIP text_cluster_id.
   const { traces, k } = useMemo(() => {
     if (projection.length === 0) return { traces: [], k: 0 };
 
@@ -61,7 +77,7 @@ export function UmapPanel() {
           name: `local cluster ${cluster_id}`,
           x: pts.map((p) => p.x),
           y: pts.map((p) => p.y),
-          customdata: pts.map((p) => [p.patch_idx, p.scan_name, cluster_id]),
+          customdata: pts.map((p) => [p.patch_idx, p.scan_name, cluster_id, p.text_cluster_id]),
           marker: {
             size: 7,
             color: clusterColor(cluster_id),
@@ -73,62 +89,84 @@ export function UmapPanel() {
       return { traces: built, k: buckets.size };
     }
 
-    // Global mode (no local clustering, or override). Color by Maad's global cluster_id.
+    // Global mode. Color by either kmeans cluster_id or PLIP text_cluster_id.
+    const keyOf = (p: ProjectionPoint) =>
+      colorMode === "kmeans" ? p.cluster_id : p.text_cluster_id;
+
     const buckets = new Map<number, ProjectionPoint[]>();
     for (const p of projection) {
-      const arr = buckets.get(p.cluster_id);
+      const key = keyOf(p);
+      const arr = buckets.get(key);
       if (arr) arr.push(p);
-      else buckets.set(p.cluster_id, [p]);
+      else buckets.set(key, [p]);
     }
     const built = [...buckets.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([cluster_id, pts]) => ({
-        type: "scattergl",
-        mode: "markers",
-        name: `cluster ${cluster_id}`,
-        x: pts.map((p) => p.x),
-        y: pts.map((p) => p.y),
-        customdata: pts.map((p) => [p.patch_idx, p.scan_name, p.cluster_id]),
-        marker: {
-          size: 5,
-          color: clusterColor(cluster_id),
-          // Dim points belonging to other brains when we have a selection,
-          // so the focused brain reads against the global background.
-          opacity: selectedScanName === null ? 0.8 : 0.25,
-          line: { width: 0 },
-        },
-        hovertemplate: "cluster %{customdata[2]} — patch %{customdata[0]}<extra></extra>",
-      }));
+      .map(([id, pts]) => {
+        const label =
+          colorMode === "kmeans"
+            ? `cluster ${id}`
+            : (textLabels[id] ?? `cluster ${id}`);
+        // Trim text-mode legend labels — long phrases blow out hover text.
+        const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
+        const color =
+          colorMode === "kmeans" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
+        return {
+          type: "scattergl",
+          mode: "markers",
+          name: trimmed,
+          x: pts.map((p) => p.x),
+          y: pts.map((p) => p.y),
+          customdata: pts.map((p) => [p.patch_idx, p.scan_name, p.cluster_id, p.text_cluster_id]),
+          marker: {
+            size: 5,
+            color,
+            // Dim points belonging to other brains when we have a selection,
+            // so the focused brain reads against the global background.
+            opacity: selectedScanName === null ? 0.8 : 0.25,
+            line: { width: 0 },
+          },
+          hovertemplate: `${trimmed} — patch %{customdata[0]}<extra></extra>`,
+        };
+      });
 
     // If a brain is selected, overlay its points at full opacity on top.
     if (selectedScanName !== null) {
-      const focusedByCluster = new Map<number, ProjectionPoint[]>();
+      const focusedByKey = new Map<number, ProjectionPoint[]>();
       for (const p of projection) {
         if (p.scan_name !== selectedScanName) continue;
-        const arr = focusedByCluster.get(p.cluster_id);
+        const key = keyOf(p);
+        const arr = focusedByKey.get(key);
         if (arr) arr.push(p);
-        else focusedByCluster.set(p.cluster_id, [p]);
+        else focusedByKey.set(key, [p]);
       }
-      for (const [cluster_id, pts] of focusedByCluster) {
+      for (const [id, pts] of focusedByKey) {
+        const label =
+          colorMode === "kmeans"
+            ? `cluster ${id}`
+            : (textLabels[id] ?? `cluster ${id}`);
+        const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
+        const color =
+          colorMode === "kmeans" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
         built.push({
           type: "scattergl",
           mode: "markers",
-          name: `selected cluster ${cluster_id}`,
+          name: `selected ${trimmed}`,
           x: pts.map((p) => p.x),
           y: pts.map((p) => p.y),
-          customdata: pts.map((p) => [p.patch_idx, p.scan_name, p.cluster_id]),
+          customdata: pts.map((p) => [p.patch_idx, p.scan_name, p.cluster_id, p.text_cluster_id]),
           marker: {
             size: 7,
-            color: clusterColor(cluster_id),
+            color,
             opacity: 0.95,
             line: { width: 0.5, color: "#000" } as unknown as { width: number },
           },
-          hovertemplate: "cluster %{customdata[2]} — patch %{customdata[0]}<extra></extra>",
+          hovertemplate: `${trimmed} — patch %{customdata[0]}<extra></extra>`,
         });
       }
     }
     return { traces: built, k: buckets.size };
-  }, [projection, effectiveMode, hasLocal, clusterResult, selectedScanName]);
+  }, [projection, effectiveMode, hasLocal, clusterResult, selectedScanName, colorMode, textLabels]);
 
   // Render plot.
   useEffect(() => {
@@ -160,11 +198,13 @@ export function UmapPanel() {
       plotEl.on("plotly_hover", (ev) => {
         const pt = ev.points[0];
         if (!pt) return;
-        const [patch_idx, scan_name, cluster_id] = pt.customdata as [number, string, number];
+        const [patch_idx, scan_name, cluster_id, text_cluster_id] =
+          pt.customdata as [number, string, number, number];
         const point: ProjectionPoint = {
           patch_idx,
           scan_name,
           cluster_id,
+          text_cluster_id,
           x: pt.x as number,
           y: pt.y as number,
           group_nr: "",
@@ -191,6 +231,34 @@ export function UmapPanel() {
             ? `${clusterResult?.labels.length ?? 0} pts · k=${k}`
             : `${projection.length} pts · k=${k}`}
         </span>
+      )}
+      {effectiveMode === "global" && haveText && (
+        <div className="flex overflow-hidden rounded border border-(--color-panel-border) text-[10px]">
+          <button
+            type="button"
+            onClick={() => setColorMode("kmeans")}
+            className={
+              "px-2 py-0.5 transition-colors " +
+              (colorMode === "kmeans"
+                ? "bg-white/10 text-(--color-fg)"
+                : "text-(--color-fg-dim) hover:bg-white/[0.03]")
+            }
+          >
+            K-means
+          </button>
+          <button
+            type="button"
+            onClick={() => setColorMode("text")}
+            className={
+              "px-2 py-0.5 transition-colors " +
+              (colorMode === "text"
+                ? "bg-white/10 text-(--color-fg)"
+                : "text-(--color-fg-dim) hover:bg-white/[0.03]")
+            }
+          >
+            Text vocab
+          </button>
+        </div>
       )}
       {hasLocal && (
         <div className="flex items-center gap-px rounded border border-(--color-panel-border) bg-black/40 p-0.5">

@@ -54,6 +54,7 @@ class ProjectionPoint(BaseModel):
     x: float
     y: float
     cluster_id: int
+    text_cluster_id: int = -1
     group_nr: str
 
 
@@ -190,12 +191,26 @@ def get_embeddings(scan_name: str):
     "/api/projection",
     response_model=list[ProjectionPoint],
     summary="UMAP projection + cluster labels for all patches",
-    description="Returns one point per patch with 2D UMAP coords and k-means cluster id.",
+    description="Returns one point per patch with 2D UMAP coords, k-means cluster id, and text-vocab cluster id.",
     tags=["Projection"],
 )
 def get_projection():
     try:
         return projection.records()
+    except FileNotFoundError as e:
+        raise HTTPException(503, str(e))
+
+
+@app.get(
+    "/api/text-labels",
+    response_model=list[str],
+    summary="Text cluster vocabulary",
+    description="Returns the list of PLIP vocab phrases indexed by text_cluster_id.",
+    tags=["Projection"],
+)
+def get_text_labels():
+    try:
+        return projection.text_labels()
     except FileNotFoundError as e:
         raise HTTPException(503, str(e))
 
