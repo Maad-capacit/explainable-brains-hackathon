@@ -19,7 +19,9 @@ export default function App() {
     <div className="flex h-full flex-col bg-(--color-bg)">
       <TopBar />
       <main className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_380px] gap-3 p-3">
-        <BrainListPanel />
+        <div className="z-10">
+          <BrainListPanel />
+        </div>
         <div className="relative min-h-0">
           <PhaseColumn />
           <PromptPanel />

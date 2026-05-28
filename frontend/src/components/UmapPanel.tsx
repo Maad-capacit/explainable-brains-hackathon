@@ -297,7 +297,13 @@ export function UmapPanel() {
         : "UMAP · all patches";
 
   return (
-    <Panel title={title} right={headerRight} bodyClassName="relative">
+    <Panel
+      title={title}
+      right={headerRight}
+      bodyClassName="relative"
+      help="2D UMAP projection of all ~7,500 patches in PLIP embedding space — points that sit close together are visually similar to the model. Switch between Local (only the selected brain, colored by your clustering) and Global (all 12 brains). In Global mode toggle between UMAP cluster colors and PLIP text-vocab colors."
+      helpAlign="left"
+    >
       {loading && (
         <div className="flex h-full items-center justify-center gap-2 text-xs text-(--color-fg-dim)">
           <Loader2 size={14} className="animate-spin" />

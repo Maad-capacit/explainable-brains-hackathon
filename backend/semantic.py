@@ -82,18 +82,32 @@ def _ensure_all_embeddings() -> None:
     mats: list[np.ndarray] = []
     order: list[str] = []
     counts: list[tuple[str, int]] = []
-    for brain in data_access.list_brains():
+    all_brains = data_access.list_brains()
+    for brain in all_brains:
         scan = brain["scan_name"]
-        arr = embeddings.load(scan)
+        try:
+            arr = embeddings.load(scan)
+        except Exception as exc:
+            log.warning("Skipping embeddings for %s (unavailable: %s)", scan, exc)
+            continue
         mats.append(arr)
         order.extend([scan] * len(arr))
         counts.append((scan, len(arr)))
+    if not mats:
+        raise FileNotFoundError(
+            "No patch embeddings are available for semantic clustering. "
+            "Ensure embedding H5 files are present in data_cache/embeddings/ "
+            "or the S3 bucket is accessible."
+        )
     X = np.vstack(mats).astype(np.float32)
     norms = np.linalg.norm(X, axis=-1, keepdims=True)
     # PLIP embeddings should already be unit norm; normalize defensively.
     X = X / np.clip(norms, 1e-8, None)
     _X_all, _scan_order, _scan_counts = X, order, counts
-    log.info("Loaded %d patch embeddings across %d brains for semantic clustering", len(X), len(counts))
+    log.info(
+        "Loaded %d patch embeddings across %d/%d brains for semantic clustering",
+        len(X), len(counts), len(all_brains),
+    )
 
 
 def cluster(prompts: list[str]) -> tuple[list[str], dict[str, list[int]]]:

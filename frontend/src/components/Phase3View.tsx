@@ -6,7 +6,11 @@ export function Phase3View() {
   const setPhase = useStore((s) => s.setPhase);
 
   return (
-    <Panel title="Label · Phase 3" bodyClassName="flex flex-col overflow-hidden">
+    <Panel
+      title="Label · Phase 3"
+      bodyClassName="flex flex-col overflow-hidden"
+      help="Phase 3 — Label (not yet implemented). The human-in-the-loop labeling step lives here. Reviewers will assign ground-truth labels to representative patches from each cluster, propagate them across the cluster, and export a curated dataset ready for model training."
+    >
       <div className="flex flex-1 items-center justify-center px-8">
         <div className="max-w-md text-center">
           <Sparkles className="mx-auto mb-3 text-(--color-highlight)/60" size={32} />

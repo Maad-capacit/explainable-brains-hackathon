@@ -50,7 +50,12 @@ export function Phase2View() {
   ) : null;
 
   return (
-    <Panel title="Clusters · Phase 2" right={right} bodyClassName="flex flex-col overflow-hidden">
+    <Panel
+      title="Clusters · Phase 2"
+      right={right}
+      bodyClassName="flex flex-col overflow-hidden"
+      help="Phase 2 — Review clusters. Patches from the selected brain are grouped into folders by the algorithm you ran in Phase 1. Each folder collects patches the model considers visually or semantically similar. Click a folder to inspect its patches; use Re-run to try different parameters."
+    >
       {!result ? (
         <div className="flex h-full items-center justify-center px-8 text-center text-xs text-(--color-fg-dim)">
           Run a clustering algorithm in <span className="mx-1 font-semibold text-(--color-fg)">Phase 1</span> to

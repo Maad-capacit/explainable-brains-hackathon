@@ -138,7 +138,13 @@ export function CoordScatter() {
   ) : null;
 
   return (
-    <Panel title="Coordinates" right={right} bodyClassName="relative">
+    <Panel
+      title="Coordinates"
+      right={right}
+      bodyClassName="relative"
+      help="3D scatter of every patch's origin (x₀, y₀, z₀) inside the original brain volume — gives you a spatial map of where the patches were extracted. Hover a point to highlight the same patch in the grid; click to open its detail view. Drag to rotate, scroll to zoom."
+      helpAlign="left"
+    >
       {!selectedScanName && (
         <div className="flex h-full items-center justify-center text-xs text-(--color-fg-dim)">
           Select a brain to view coordinates.

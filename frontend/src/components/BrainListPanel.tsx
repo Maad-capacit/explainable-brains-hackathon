@@ -82,7 +82,12 @@ export function BrainListPanel() {
   ) : null;
 
   return (
-    <Panel title="Brains" right={right} bodyClassName="overflow-y-auto">
+    <Panel
+      title="Brains"
+      right={right}
+      bodyClassName="overflow-y-auto"
+      help="The 12 mouse brain scans in this dataset. G001 = Vehicle/control, G002 = Semaglutide. The number next to each brain is its patch count. Click a brain to load its patches into the explore view."
+    >
       {loading && brains.length === 0 && (
         <div className="flex h-full items-center justify-center gap-2 text-xs text-(--color-fg-dim)">
           <Loader2 size={14} className="animate-spin" />

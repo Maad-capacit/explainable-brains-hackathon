@@ -1,6 +1,7 @@
-import { X, Plus, Trash2, RotateCcw, Play, Loader2 } from "lucide-react";
+import { X, Plus, Trash2, RotateCcw, Play, Loader2, Clock } from "lucide-react";
 import { useStore } from "../store";
 import { textClusterColor } from "../lib/palette";
+import { HelpHint } from "./HelpHint";
 
 export function PromptPanel() {
   const open = useStore((s) => s.promptPanelOpen);
@@ -20,9 +21,15 @@ export function PromptPanel() {
   return (
     <div className="absolute inset-y-0 right-0 z-20 flex w-[340px] max-w-full flex-col rounded-lg border border-(--color-panel-border) bg-(--color-panel) shadow-2xl backdrop-blur-md">
       <header className="flex shrink-0 items-center justify-between border-b border-(--color-panel-border) px-4 py-2.5">
-        <h2 className="text-[11px] font-medium tracking-[0.16em] uppercase text-(--color-fg-dim)">
-          Prompts · {prompts.length}
-        </h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-[11px] font-medium tracking-[0.16em] uppercase text-(--color-fg-dim)">
+            Prompts · {prompts.length}
+          </h2>
+          <HelpHint
+            align="left"
+            text="Each prompt defines one cluster. Every patch is assigned to the prompt whose PLIP text embedding is closest (cosine similarity) to its image embedding. The list is pre-filled with 24 default phrases — try them as-is, edit them, or write your own to explore different groupings. Click Run clustering to apply."
+          />
+        </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -37,6 +44,13 @@ export function PromptPanel() {
         Each prompt becomes one cluster. Patches are assigned to their best-matching
         prompt by PLIP similarity.
       </p>
+
+      <div className="mx-3 mt-2 flex shrink-0 items-start gap-2 rounded border border-(--color-highlight)/30 bg-(--color-highlight)/5 px-2.5 py-1.5 text-[10px] leading-relaxed text-(--color-fg)/85">
+        <Clock size={11} className="mt-0.5 shrink-0 text-(--color-highlight)" />
+        <span>
+          First run takes ~30s while the PLIP model loads (~600&nbsp;MB). Subsequent runs are instant.
+        </span>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <div className="flex flex-col gap-1.5">
