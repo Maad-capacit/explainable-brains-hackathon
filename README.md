@@ -38,6 +38,9 @@ Browse all 12 brain scans and their patches with per-patch quality metrics (shar
 **Phase 2 — Review clusters**
 Run browser-side k-means clustering on [PLIP](https://github.com/PathologyFoundation/plip) embeddings (512-dimensional, L2-normalized cosine) to partition patches into semantically meaningful groups. Clusters are presented as labeled folders — select any cluster to inspect its patches side by side.
 
+**Cluster with prompts**
+A second clustering algorithm is available — *semantic prompt clustering*, where each cluster is defined by a free-form text phrase. When you press **Run clustering**, the backend encodes every prompt with the PLIP text encoder and compares it to every patch embedding; each patch is assigned to the prompt with the highest cosine similarity score. 24 pre-written prompts (cell density, tissue framing, anatomy, imaging quality) ship as a starting point — edit, remove, or add your own. Hovering a point on the UMAP grid shows both the matched prompt name and its similarity score, so weakly assigned patches stand out at a glance.
+
 **Validate with UMAP**
 A two-stage UMAP projection (512D → 10D for clustering, 512D → 2D for visualization) is pre-computed offline and served by the backend. The 2D projection is displayed alongside k-means coloring, giving researchers a visual sanity check of cluster quality across the full dataset or per brain. A secondary **text-vocabulary view** uses PLIP zero-shot matching against 24 biological phrases to semantically annotate patches without any manual labeling.
 
@@ -81,6 +84,10 @@ Given more time, we would have liked to:
 **More clustering models** — Add HDBSCAN, spectral clustering, and Gaussian Mixture Models as selectable algorithms alongside k-means, allowing researchers to compare clustering strategies and choose the one that best fits each dataset's topology.
 
 **Natural language patch explanations** — Expand the text-vocabulary module to generate rich, per-patch natural language descriptions for each cluster's visual and biological characteristics. These summaries would appear directly inside the cluster folder view and the patch detail modal, making it easier for non-specialists to interpret what each cluster represents biologically.
+
+**Per-cluster natural language summaries** — For every cluster the user computes, generate a short natural language description that captures what visual or biological pattern the cluster is essentially "grabbing". The summary would surface in the cluster folder header, so a reviewer can understand what a cluster represents at a glance without opening every thumbnail.
+
+**A "leftover" cluster for unmatched patches** — Prompt-based clustering currently forces every patch into the best-matching prompt, even when the similarity score is weak. Add an explicit "leftover" cluster gated by a configurable similarity threshold: patches whose top score falls below the cutoff land there, surfacing what the current prompt set does *not* describe well and flagging good candidates for new prompts.
 
 **Complete the labeling step (Phase 3)** — Build out the human-in-the-loop labeling interface currently stubbed as Phase 3. Annotators would assign ground-truth labels to representative patches from each cluster, propagate labels within clusters, review edge cases, and export a curated labeled dataset ready for model training.
 
