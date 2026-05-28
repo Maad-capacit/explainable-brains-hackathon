@@ -24,6 +24,8 @@ import torch
 REPO = Path(__file__).resolve().parent.parent
 EMB_DIR = REPO / "data" / "challengeA" / "embeddings"
 PLIP_LOCAL = REPO / "plip"
+# Use the local PLIP weights if present; otherwise auto-download from the Hub.
+PLIP_MODEL = str(PLIP_LOCAL) if (PLIP_LOCAL / "config.json").exists() else "vinid/plip"
 ARTIFACTS = REPO / "data_cache" / "cluster_artifacts"
 ARTIFACTS.mkdir(parents=True, exist_ok=True)
 OUT_PARQUET = ARTIFACTS / "text_clusters.parquet"
@@ -77,9 +79,9 @@ def load_image_embeddings() -> tuple[np.ndarray, pd.DataFrame]:
 
 def encode_vocab(texts: list[str]) -> np.ndarray:
     """Encode vocab with PLIP text encoder, L2-normalized."""
-    print(f"Loading PLIP model from {PLIP_LOCAL}…")
-    model = CLIPModel.from_pretrained(str(PLIP_LOCAL))
-    proc = CLIPProcessor.from_pretrained(str(PLIP_LOCAL))
+    print(f"Loading PLIP model from {PLIP_MODEL}…")
+    model = CLIPModel.from_pretrained(PLIP_MODEL)
+    proc = CLIPProcessor.from_pretrained(PLIP_MODEL)
     model.eval()
     with torch.no_grad():
         inputs = proc(text=texts, return_tensors="pt", padding=True, truncation=True, max_length=77)

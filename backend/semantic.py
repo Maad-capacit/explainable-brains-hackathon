@@ -22,6 +22,9 @@ from . import data_access, embeddings
 log = logging.getLogger(__name__)
 
 PLIP_LOCAL = data_access.REPO_ROOT / "plip"
+# Use the local PLIP weights if present; otherwise auto-download from the Hub
+# (public, ~577 MB) so a fresh clone without the model dir still works.
+PLIP_MODEL = str(PLIP_LOCAL) if (PLIP_LOCAL / "config.json").exists() else "vinid/plip"
 
 _lock = threading.Lock()
 _model = None
@@ -40,9 +43,9 @@ def _ensure_model() -> None:
         return
     from transformers import CLIPModel, CLIPProcessor
 
-    log.info("Loading PLIP model from %s…", PLIP_LOCAL)
-    _model = CLIPModel.from_pretrained(str(PLIP_LOCAL))
-    _proc = CLIPProcessor.from_pretrained(str(PLIP_LOCAL))
+    log.info("Loading PLIP model from %s…", PLIP_MODEL)
+    _model = CLIPModel.from_pretrained(PLIP_MODEL)
+    _proc = CLIPProcessor.from_pretrained(PLIP_MODEL)
     _model.eval()
 
 
