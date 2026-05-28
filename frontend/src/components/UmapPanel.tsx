@@ -3,23 +3,11 @@ import Plotly from "plotly.js-gl3d-dist-min";
 import { Loader2, Globe2, Focus } from "lucide-react";
 import { useStore } from "../store";
 import { type ProjectionPoint } from "../lib/api";
-import { clusterColor } from "../lib/palette";
+import { clusterColor, textClusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 
 type ViewMode = "global" | "local";
 type ColorMode = "umap" | "text";
-
-// 24-color palette for text clusters (4 more than tab20 since the PLIP vocab
-// has 24 phrases). The first 20 match `clusterColor` so UMAP and text modes
-// share colors for the overlapping ids.
-const TEXT_PALETTE = [
-  "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78",
-  "#2ca02c", "#98df8a", "#d62728", "#ff9896",
-  "#9467bd", "#c5b0d5", "#8c564b", "#c49c94",
-  "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
-  "#bcbd22", "#dbdb8d", "#17becf", "#9edae5",
-  "#393b79", "#637939", "#8c6d31", "#843c39",
-];
 
 export function UmapPanel() {
   const projection = useStore((s) => s.projection);
@@ -60,6 +48,8 @@ export function UmapPanel() {
 
     if (effectiveMode === "local" && hasLocal && clusterResult && selectedScanName) {
       const labels = clusterResult.labels;
+      const isSemantic = clusterResult.algorithmKey === "semantic";
+      const colorOf = isSemantic ? textClusterColor : clusterColor;
       const buckets = new Map<number, ProjectionPoint[]>();
       for (const p of projection) {
         if (p.scan_name !== selectedScanName) continue;
@@ -71,21 +61,27 @@ export function UmapPanel() {
       }
       const built = [...buckets.entries()]
         .sort((a, b) => a[0] - b[0])
-        .map(([cluster_id, pts]) => ({
-          type: "scattergl",
-          mode: "markers",
-          name: `local cluster ${cluster_id}`,
-          x: pts.map((p) => p.x),
-          y: pts.map((p) => p.y),
-          customdata: pts.map((p) => [p.patch_idx, p.scan_name, cluster_id, p.text_cluster_id]),
-          marker: {
-            size: 7,
-            color: clusterColor(cluster_id),
-            opacity: 0.9,
-            line: { width: 0 },
-          },
-          hovertemplate: "local cluster %{customdata[2]} — patch %{customdata[0]}<extra></extra>",
-        }));
+        .map(([cluster_id, pts]) => {
+          const promptLabel = clusterResult.clusterLabels?.[cluster_id];
+          const name = promptLabel
+            ? promptLabel.length > 50 ? promptLabel.slice(0, 47) + "…" : promptLabel
+            : `local cluster ${cluster_id}`;
+          return {
+            type: "scattergl",
+            mode: "markers",
+            name,
+            x: pts.map((p) => p.x),
+            y: pts.map((p) => p.y),
+            customdata: pts.map((p) => [p.patch_idx, p.scan_name, cluster_id, p.text_cluster_id]),
+            marker: {
+              size: 7,
+              color: colorOf(cluster_id),
+              opacity: 0.9,
+              line: { width: 0 },
+            },
+            hovertemplate: `${name} — patch %{customdata[0]}<extra></extra>`,
+          };
+        });
       return { traces: built, k: buckets.size };
     }
 
@@ -110,7 +106,7 @@ export function UmapPanel() {
         // Trim text-mode legend labels — long phrases blow out hover text.
         const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
         const color =
-          colorMode === "umap" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
+          colorMode === "umap" ? clusterColor(id) : textClusterColor(id);
         return {
           type: "scattergl",
           mode: "markers",
@@ -147,7 +143,7 @@ export function UmapPanel() {
             : (textLabels[id] ?? `cluster ${id}`);
         const trimmed = label.length > 50 ? label.slice(0, 47) + "…" : label;
         const color =
-          colorMode === "umap" ? clusterColor(id) : TEXT_PALETTE[id % TEXT_PALETTE.length];
+          colorMode === "umap" ? clusterColor(id) : textClusterColor(id);
         built.push({
           type: "scattergl",
           mode: "markers",

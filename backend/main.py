@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import data_access, embeddings, projection
+from . import data_access, embeddings, projection, semantic
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -32,7 +32,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -75,6 +75,17 @@ class PatchMetadata(BaseModel):
     snr: float = Field(..., description="Signal-to-noise ratio (mean / std)")
     local_contrast: float = Field(..., description="Mean absolute gradient")
     foreground_fraction: float = Field(..., description="Tissue fraction via Otsu thresholding")
+
+
+class SemanticClusterRequest(BaseModel):
+    prompts: list[str] = Field(..., description="Text prompts; each becomes one cluster")
+
+
+class SemanticClusterResponse(BaseModel):
+    labels: list[str] = Field(..., description="Prompt text indexed by cluster id")
+    assignments: dict[str, list[int]] = Field(
+        ..., description="Per scan_name, the winning prompt index for each patch_idx"
+    )
 
 
 class HealthResponse(BaseModel):
@@ -213,6 +224,28 @@ def get_text_labels():
         return projection.text_labels()
     except FileNotFoundError as e:
         raise HTTPException(503, str(e))
+
+
+@app.post(
+    "/api/semantic-cluster",
+    response_model=SemanticClusterResponse,
+    summary="Cluster all patches by similarity to editable PLIP text prompts",
+    description=(
+        "Encodes the given prompts with the PLIP text encoder and assigns every "
+        "patch (across all brains) to its best-matching prompt. Each prompt is one "
+        "cluster. Returns per-scan assignments aligned by patch_idx."
+    ),
+    tags=["Projection"],
+)
+def post_semantic_cluster(req: SemanticClusterRequest):
+    prompts = [p.strip() for p in req.prompts if p.strip()]
+    if not prompts:
+        raise HTTPException(400, "prompts must contain at least one non-empty string")
+    try:
+        labels, assignments = semantic.cluster(prompts)
+    except FileNotFoundError as e:
+        raise HTTPException(503, str(e))
+    return {"labels": labels, "assignments": assignments}
 
 
 @app.get(

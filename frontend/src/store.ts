@@ -31,6 +31,8 @@ interface AppState {
   currentPhase: Phase;
   algoKey: AlgoKey;
   algoParams: ParamValues;
+  prompts: string[];                          // editable PLIP prompts (semantic algo)
+  promptPanelOpen: boolean;                   // side panel for editing prompts
   clusterResult: ClusteringResult | null;     // scoped to selectedScanName; cleared on brain change
   clusteringInProgress: boolean;
   clusteringError: string | null;
@@ -61,6 +63,13 @@ interface AppState {
   runClusteringForSelected: () => Promise<void>;
   setSelectedCluster: (clusterId: number | null) => void;
   clearClusterResult: () => void;
+
+  // Prompt editing (semantic algorithm)
+  setPromptPanelOpen: (open: boolean) => void;
+  addPrompt: () => void;
+  updatePrompt: (index: number, text: string) => void;
+  removePrompt: (index: number) => void;
+  resetPrompts: () => void;
 }
 
 const INITIAL_ALGO: AlgoKey = "umap";
@@ -83,6 +92,8 @@ export const useStore = create<AppState>((set, get) => ({
   currentPhase: 1,
   algoKey: INITIAL_ALGO,
   algoParams: defaultParams(INITIAL_ALGO),
+  prompts: [],
+  promptPanelOpen: false,
   clusterResult: null,
   clusteringInProgress: false,
   clusteringError: null,
@@ -114,7 +125,9 @@ export const useStore = create<AppState>((set, get) => ({
         api.projection(),
         api.textLabels().catch(() => [] as string[]),
       ]);
-      set({ projection, textLabels, projectionLoading: false });
+      // Seed the editable prompt list from the default vocab on first load.
+      const prompts = get().prompts.length === 0 ? textLabels : get().prompts;
+      set({ projection, textLabels, prompts, projectionLoading: false });
     } catch (e) {
       set({ projectionError: (e as Error).message, projectionLoading: false });
     }
@@ -156,7 +169,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   setAlgorithm: (key) => {
     if (get().algoKey === key) return;
-    set({ algoKey: key, algoParams: defaultParams(key) });
+    // Opening the prompt editor as soon as the semantic algorithm is picked.
+    set({
+      algoKey: key,
+      algoParams: defaultParams(key),
+      promptPanelOpen: key === "semantic",
+    });
   },
 
   setAlgoParam: (key, value) =>
@@ -174,6 +192,41 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set({ clusteringInProgress: true, clusteringError: null, selectedCluster: null });
     try {
+      if (algoKey === "semantic") {
+        const prompts = get().prompts.map((p) => p.trim()).filter(Boolean);
+        if (prompts.length === 0) {
+          set({ clusteringError: "add at least one prompt", clusteringInProgress: false });
+          return;
+        }
+        const t0 = performance.now();
+        const { labels, assignments } = await api.semanticCluster(prompts);
+        if (get().selectedScanName !== selectedScanName) return;
+
+        // Recolor the global UMAP "Text vocab" view with the new assignments.
+        const projection = get().projection.map((p) => ({
+          ...p,
+          text_cluster_id: assignments[p.scan_name]?.[p.patch_idx] ?? -1,
+        }));
+
+        // Build the per-brain Phase 2 result from this brain's subset.
+        const brainLabels = assignments[selectedScanName] ?? [];
+        const result: ClusteringResult = {
+          labels: Int32Array.from(brainLabels),
+          clusterLabels: labels,
+          algorithmKey: "semantic",
+          params: {},
+          durationMs: performance.now() - t0,
+        };
+        set({
+          projection,
+          textLabels: labels,
+          clusterResult: result,
+          clusteringInProgress: false,
+          currentPhase: 2,
+        });
+        return;
+      }
+
       const emb = await api.embeddings(selectedScanName);
       // Bail if the user switched brains while we were waiting on the fetch.
       if (get().selectedScanName !== selectedScanName) return;
@@ -208,4 +261,17 @@ export const useStore = create<AppState>((set, get) => ({
       clusteringError: null,
       currentPhase: 1,
     }),
+
+  // ── Prompt editing (semantic algorithm) ─────────────────────────────────────
+  setPromptPanelOpen: (open) => set({ promptPanelOpen: open }),
+
+  addPrompt: () => set((s) => ({ prompts: [...s.prompts, ""] })),
+
+  updatePrompt: (index, text) =>
+    set((s) => ({ prompts: s.prompts.map((p, i) => (i === index ? text : p)) })),
+
+  removePrompt: (index) =>
+    set((s) => ({ prompts: s.prompts.filter((_, i) => i !== index) })),
+
+  resetPrompts: () => set((s) => ({ prompts: [...s.textLabels] })),
 }));
