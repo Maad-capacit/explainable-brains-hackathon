@@ -12,7 +12,7 @@
 
 import { kmeans } from "ml-kmeans";
 
-export type AlgoKey = "umap";
+export type AlgoKey = "umap" | "semantic";
 
 export type ParamType = "int" | "float" | "select";
 
@@ -34,6 +34,7 @@ export interface ClusteringResult {
   labels: Int32Array;        // cluster id per row, aligned with the embedding row order
   centroids?: number[][];    // present if the algorithm produces them
   iterations?: number;       // present if the algorithm reports it
+  clusterLabels?: string[];  // human label per cluster id (e.g. prompt text), if any
   algorithmKey: AlgoKey;
   params: ParamValues;       // exact params used (for caching / display)
   durationMs: number;
@@ -44,6 +45,9 @@ export interface Algorithm {
   label: string;
   description: string;
   params: ParamSpec[];
+  // Algorithms that cluster by editable text prompts rather than numeric params.
+  // Their work runs server-side, so `run` is never invoked via runClustering.
+  usesPrompts?: boolean;
   run(
     embeddings: Float32Array,
     shape: [number, number],
@@ -130,8 +134,28 @@ const umapAlgo: Algorithm = {
   },
 };
 
+// ── Semantic (PLIP text prompts) ─────────────────────────────────────────────
+//
+// Each prompt is one cluster. The assignment is computed server-side (the PLIP
+// text encoder can't run in the browser), so `run` is never called — the store
+// branches to api.semanticCluster. This entry exists only to populate the
+// algorithm dropdown and to provide a display label for the result.
+
+const semanticAlgo: Algorithm = {
+  key: "semantic",
+  label: "Semantic (PLIP prompts)",
+  description:
+    "Assign each patch to its best-matching text prompt via PLIP zero-shot similarity. Each prompt is a cluster; edit prompts in the side panel.",
+  params: [],
+  usesPrompts: true,
+  run() {
+    throw new Error("semantic clustering runs server-side; use api.semanticCluster");
+  },
+};
+
 export const ALGORITHMS: Record<AlgoKey, Algorithm> = {
   umap: umapAlgo,
+  semantic: semanticAlgo,
 };
 
 export function defaultParams(algoKey: AlgoKey): ParamValues {

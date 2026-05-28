@@ -48,8 +48,25 @@ export interface BrainEmbeddings {
   shape: [number, number]; // [N, 512]
 }
 
+// Prompt-based (PLIP) clustering: each prompt is one cluster. assignments[scan]
+// holds the winning prompt index per patch_idx (see backend/semantic.py).
+export interface SemanticClusterResult {
+  labels: string[];
+  assignments: Record<string, number[]>;
+}
+
 async function getJSON<T>(url: string): Promise<T> {
   const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} → ${r.status} ${r.statusText}`);
+  return (await r.json()) as T;
+}
+
+async function postJSON<T>(url: string, body: unknown): Promise<T> {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!r.ok) throw new Error(`${url} → ${r.status} ${r.statusText}`);
   return (await r.json()) as T;
 }
@@ -73,6 +90,8 @@ export const api = {
     getJSON<PatchMetadata[]>(`/api/brains/${encodeURIComponent(scan)}/patches`),
   projection: () => getJSON<ProjectionPoint[]>("/api/projection"),
   textLabels: () => getJSON<string[]>("/api/text-labels"),
+  semanticCluster: (prompts: string[]) =>
+    postJSON<SemanticClusterResult>("/api/semantic-cluster", { prompts }),
   embeddings: getEmbeddings,
   thumbnailURL: (scan: string, idx: number) =>
     `/api/brains/${encodeURIComponent(scan)}/patches/${idx}/thumbnail`,

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw, FolderOpen, Folder } from "lucide-react";
 import { useStore } from "../store";
 import { ALGORITHMS } from "../lib/clustering";
-import { clusterColor } from "../lib/palette";
+import { clusterColor, textClusterColor } from "../lib/palette";
 import { Panel } from "./Panel";
 import { PatchGridSurface } from "./PatchGrid";
 
@@ -37,6 +37,12 @@ export function Phase2View() {
     return patches.filter((p) => result.labels[p.patch_idx] === selectedCluster);
   }, [patches, result, selectedCluster]);
 
+  // Semantic clusters carry per-cluster prompt text and use the 24-color text
+  // palette so folders match the UMAP "Text vocab" coloring.
+  const isSemantic = result?.algorithmKey === "semantic";
+  const colorFor = (id: number) => (isSemantic ? textClusterColor(id) : clusterColor(id));
+  const labelFor = (id: number) => result?.clusterLabels?.[id]?.trim() || `c${id}`;
+
   const right = result ? (
     <span className="font-mono text-[10px] text-(--color-fg-dim)">
       {summaries.length} clusters · {ALGORITHMS[result.algorithmKey].label}
@@ -58,7 +64,9 @@ export function Phase2View() {
             <div className="flex shrink-0 items-center gap-1.5">
               {summaries.map((s) => {
                 const active = selectedCluster === s.cluster_id;
-                const color = clusterColor(s.cluster_id);
+                const color = colorFor(s.cluster_id);
+                const label = labelFor(s.cluster_id);
+                const shortLabel = isSemantic && label.length > 22 ? label.slice(0, 21) + "…" : label;
                 const Icon = active ? FolderOpen : Folder;
                 return (
                   <button
@@ -71,10 +79,10 @@ export function Phase2View() {
                         ? "border-(--color-highlight) bg-(--color-highlight)/10 text-(--color-fg)"
                         : "border-(--color-panel-border) bg-black/30 text-(--color-fg)/85 hover:border-white/[0.15]")
                     }
-                    title={`cluster ${s.cluster_id} — ${s.size} patches`}
+                    title={`${label} — ${s.size} patches`}
                   >
                     <Icon size={12} style={{ color }} />
-                    <span style={{ color }}>c{s.cluster_id}</span>
+                    <span style={{ color }}>{shortLabel}</span>
                     <span className="text-(--color-fg-dim)">{s.size}</span>
                   </button>
                 );
@@ -94,9 +102,9 @@ export function Phase2View() {
                   <span className="flex items-center gap-2 font-mono text-[11px]">
                     <span
                       className="inline-block size-2 rounded-full"
-                      style={{ backgroundColor: clusterColor(selectedCluster) }}
+                      style={{ backgroundColor: colorFor(selectedCluster) }}
                     />
-                    Cluster {selectedCluster}
+                    {labelFor(selectedCluster)}
                   </span>
                   <span className="font-mono text-[10px] text-(--color-fg-dim)">
                     {clusterPatches.length} patches · {((clusterPatches.length / patches.length) * 100).toFixed(1)}% of brain

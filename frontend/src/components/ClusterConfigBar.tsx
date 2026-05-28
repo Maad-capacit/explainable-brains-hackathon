@@ -1,4 +1,4 @@
-import { Play, Loader2, RotateCcw, AlertCircle } from "lucide-react";
+import { Play, Loader2, RotateCcw, AlertCircle, SlidersHorizontal } from "lucide-react";
 import { useStore } from "../store";
 import { ALGORITHMS, type AlgoKey, type ParamSpec } from "../lib/clustering";
 
@@ -46,6 +46,9 @@ export function ClusterConfigBar() {
   const error = useStore((s) => s.clusteringError);
   const result = useStore((s) => s.clusterResult);
   const selectedScanName = useStore((s) => s.selectedScanName);
+  const prompts = useStore((s) => s.prompts);
+  const promptPanelOpen = useStore((s) => s.promptPanelOpen);
+  const setPromptPanelOpen = useStore((s) => s.setPromptPanelOpen);
 
   const algo = ALGORITHMS[algoKey];
   const allAlgos = Object.values(ALGORITHMS);
@@ -67,28 +70,47 @@ export function ClusterConfigBar() {
 
       <div className="h-4 w-px bg-(--color-panel-border)" aria-hidden="true" />
 
-      {algo.params.map((spec) => {
-        const value = algoParams[spec.key];
-        return (
-          <label key={spec.key} className="flex items-center gap-1.5" title={spec.description ?? ""}>
-            <span className="font-mono text-[10px] text-(--color-fg-dim)">{spec.label}</span>
-            {spec.type === "select" ? (
-              <SelectInput spec={spec} value={String(value)} onChange={(v) => setAlgoParam(spec.key, v)} />
-            ) : (
-              <NumberInput spec={spec} value={Number(value)} onChange={(v) => setAlgoParam(spec.key, v)} />
-            )}
-          </label>
-        );
-      })}
+      {algo.usesPrompts ? (
+        <button
+          type="button"
+          onClick={() => setPromptPanelOpen(!promptPanelOpen)}
+          title="Edit the prompts that define the clusters"
+          className={
+            "flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[11px] transition " +
+            (promptPanelOpen
+              ? "border-(--color-highlight) bg-(--color-highlight)/10 text-(--color-fg)"
+              : "border-(--color-panel-border) bg-black/40 text-(--color-fg) hover:border-white/[0.15]")
+          }
+        >
+          <SlidersHorizontal size={12} />
+          Prompts ({prompts.length})
+        </button>
+      ) : (
+        <>
+          {algo.params.map((spec) => {
+            const value = algoParams[spec.key];
+            return (
+              <label key={spec.key} className="flex items-center gap-1.5" title={spec.description ?? ""}>
+                <span className="font-mono text-[10px] text-(--color-fg-dim)">{spec.label}</span>
+                {spec.type === "select" ? (
+                  <SelectInput spec={spec} value={String(value)} onChange={(v) => setAlgoParam(spec.key, v)} />
+                ) : (
+                  <NumberInput spec={spec} value={Number(value)} onChange={(v) => setAlgoParam(spec.key, v)} />
+                )}
+              </label>
+            );
+          })}
 
-      <button
-        type="button"
-        onClick={resetAlgoParams}
-        title="Reset to defaults"
-        className="flex items-center gap-1 rounded p-1 text-(--color-fg-dim) transition hover:bg-white/[0.05] hover:text-(--color-fg)"
-      >
-        <RotateCcw size={12} />
-      </button>
+          <button
+            type="button"
+            onClick={resetAlgoParams}
+            title="Reset to defaults"
+            className="flex items-center gap-1 rounded p-1 text-(--color-fg-dim) transition hover:bg-white/[0.05] hover:text-(--color-fg)"
+          >
+            <RotateCcw size={12} />
+          </button>
+        </>
+      )}
 
       <div className="flex-1" />
 

@@ -6,3 +6,5 @@ pandas
 Pillow
 boto3
 s3fs
+torch
+transformers
